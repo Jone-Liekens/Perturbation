@@ -1,6 +1,6 @@
 import numpy as np
 
-from orig_solve_bvp import solve_bvp
+from solve_bvp_orig import solve_bvp
 from solve_bvp_s45 import solve_bvp as solve_bvp45
 
 x = np.linspace(0, 1, 11, dtype=float)

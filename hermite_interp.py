@@ -59,6 +59,9 @@ def hermite_interp(x, y, yd):
     n = y.shape[0] # n, s, m
 
 
+    print("interpolation_dims", s2, m, n)
+
+
     y = y.transpose([1, 2, 0]) # move n-dimension to the back
     yd = yd.transpose([1, 2, 0]) 
 

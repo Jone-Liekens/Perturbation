@@ -3,6 +3,10 @@ from numpy import sin, cos, tan, atan, cosh, sinh, tanh, abs, linspace, min, max
 import scipy
 import matplotlib.pyplot as plt
 
+from solve_bvp_s45 import solve_bvp as solve_bvp_s45
+from solve_bvp_s2 import solve_bvp as solve_bvp_s2
+from solve_bvp_orig import solve_bvp as solve_bvp_orig
+
 class PerturbationCSWE():
 
     def __init__(self):
@@ -57,6 +61,7 @@ class PerturbationCSWE():
     def h_fx_dxxx(self, x): return 0
 
     def deriv_LO(self, x_x, y0_x):
+        # x_x, y0_x = np.array(x_x), np.array(y0_x)
         dz0c_x, dz0s_x, u0c_x, u0s_x = y0_x
         h_x, h_x_dx, h_x_dxx = self.h_fx(x_x), self.h_fx_dx(x_x), self.h_fx_dxx(x_x)
 
@@ -70,8 +75,21 @@ class PerturbationCSWE():
             u0s_x_dx = ( dz0c_x + u0s_x * h_x_dx)  / (1 - h_x)
 
         # derivatives of u at x = 1 (using l'hopital)
-        u0c_x_dx[-1] =  ( dz0s_x_dx[-1] - u0c_x[-1] * h_x_dxx)  / (2*h_x_dx)
-        u0s_x_dx[-1] =  (-dz0c_x_dx[-1] - u0s_x[-1] * h_x_dxx)  / (2*h_x_dx)
+
+
+        if isinstance(x_x, np.ndarray):
+            
+            u0c_x_dx[-1] =  ( dz0s_x_dx[-1] - u0c_x[-1] * h_x_dxx)  / (2*h_x_dx)
+            u0s_x_dx[-1] =  (-dz0c_x_dx[-1] - u0s_x[-1] * h_x_dxx)  / (2*h_x_dx)
+
+            # u0c_x_dx = np.nan_to_num(u0c_x_dx, nan=0.0, posinf=0.0, neginf=0.0)
+
+        elif abs(x_x - 1) < 1e-14:
+            u0c_x_dx =  ( dz0s_x_dx - u0c_x * h_x_dxx)  / (2*h_x_dx)
+            u0s_x_dx =  (-dz0c_x_dx - u0s_x * h_x_dxx)  / (2*h_x_dx)
+
+        
+
 
         return np.array([dz0c_x_dx, dz0s_x_dx, u0c_x_dx, u0s_x_dx])
     
@@ -289,23 +307,37 @@ class PerturbationCSWE():
         y_guess = 0.1 * np.ones((10, len(self.x)))
 
         sol = scipy.integrate.solve_bvp(self.deriv, self.bc, self.x, y_guess, tol=self.tol, max_nodes=20000, verbose=2)
-
+        self.y = sol
         if sol.status or self.debug:
             print(sol)
             raise SystemError
         
-        self.y = sol
+        
 
     def solve_LO(self):
         self.x = linspace(0, 1, 2000)
+        
+        # if you want to have a different initial mesh
+        # dx = 0.003
+        # transf1 = lambda x: (np.log(x + dx) - np.log(dx)) / (np.log(1 + dx) - np.log(dx))
+        # self.x = transf1(self.x)
         y_guess = 0.1 * np.ones((4, len(self.x)))
-        sol = scipy.integrate.solve_bvp(self.deriv_LO, self.bc_moving_boundary_LO, self.x, y_guess, tol=self.tol, max_nodes=20000, verbose=2)
+
+        # sol = scipy.integrate.solve_bvp(self.deriv_LO, self.bc_moving_boundary_LO, self.x, y_guess, tol=self.tol, max_nodes=20000, verbose=2)
+        sol = solve_bvp_s45(self.deriv_LO, self.bc_moving_boundary_LO, self.x, y_guess, s=3, tol=self.tol, max_nodes=20000, verbose=2)
+        # sol = solve_bvp_s2(self.deriv_LO, self.bc_moving_boundary_LO, self.x, y_guess, tol=self.tol, max_nodes=20000, verbose=2)
+        # sol = solve_bvp_orig(self.deriv_LO, self.bc_moving_boundary_LO, self.x, y_guess, tol=self.tol, max_nodes=20000, verbose=2)
+        try:
+            self.y0 = sol.sol
+        except:
+            self.y0 = sol
+        return
 
         if sol.status or self.debug:
             print(sol)
             raise SystemError
         
-        self.y0 = sol
+        
 
     def visualize_components(self):
         # assume self.solve() has been called
@@ -322,11 +354,13 @@ class PerturbationCSWE():
         plt.show()
 
     def visualize_LO(self):
+
+        x = linspace(0, 1, 10000)
         fig, axs = plt.subplots(3, 4, figsize=(20, 15))
-        st = np.argmin(abs(self.y0.x - 0.9))
+        st = np.argmin(abs(x - 0.9))
         for nu in range(3):
             for i in range(4):
-                axs[nu, i].plot(self.y0.x[st:], self.y0.sol(self.y0.x[st:], nu=nu)[i])
+                axs[nu, i].plot(x[st:], self.y0.sol(x[st:], nu=nu)[i])
         plt.show()
 
 

@@ -167,7 +167,7 @@ class Collocation_system():
             sp.optimize.fsolve(
                 lambda y: optimize_func(
                     x_middle[i], y, y0[i], f0[i], f1[i], h[i]
-                ), y_middle[i].flatten()
+                ), y_middle[i].flatten(), xtol=1e-12
             ).reshape(self.s-2, self.n)
             for i in range(self.m-1)
         ])
@@ -187,6 +187,17 @@ class Collocation_system():
 
         # (m-1),n
         col_res = y1 - y1_n
+        # np.set_printoptions(
+        #     linewidth=150,   # allow long lines before wrapping
+        #     precision=5,     # show only two decimals
+        #     floatmode='maxprec',  # optional: consistent formatting
+        #     suppress=True    # avoid scientific notation for small numbers
+        # )
+        # print(x_stages)
+        # for m_i in range(20):
+        #     plt.plot(x_stages[m_i] - x_stages[m_i][0], y_n[m_i], 'o-')
+        # plt.show()
+        # input("continue?")
 
         #      n, (m-1)   (m-1),(s-2),n   n, (m-1)   (m-1),(s-2),n
         return col_res.T,  y_middle_n,     f,        f_middle_n
@@ -203,7 +214,8 @@ class Collocation_system():
             print(f0.shape)
 
         # same shape as y, [n,m]
-        eps = EPS**0.5 * (1 + np.abs(y))
+        eps = 1e-4 * (1+np.abs(y))
+        # eps = EPS**0.5 * (1 + np.abs(y))
 
         # alternate activations
         activations = 1 - np.arange(self.m) % 2
@@ -532,7 +544,11 @@ class Collocation_system():
         # which we choose to be 1.5 orders lower than the BVP tolerance. We rewrite
         # the condition as col_res < tol_r * (1 + np.abs(f_middle)), then tol_r
         # should be computed as follows:
+
+        print(bvp_tol)
         tol_r = 2/3 * h * 5e-2 * bvp_tol
+        print("Required relative tolerance:")
+        print(tol_r)
 
         # Maximum allowed number of Jacobian evaluation and factorization, in
         # other words, the maximum number of full Newton iterations. A small value
@@ -563,7 +579,9 @@ class Collocation_system():
         singular = False
         recompute_jac = True
         for iteration in range(max_iter):
-            print("Starting a new iteration")
+            print("-------------------------------")
+            print("Starting a new Newton iteration")
+            print("-------------------------------")
             if recompute_jac:
                 
                 J = self.construct_global_jac(y, p, f, bc_res)
@@ -584,10 +602,8 @@ class Collocation_system():
             alpha = 1
             for trial in range(n_trial + 1):
                 print("new armillo step")
-                print(y)
                 
                 y_new = y - alpha * y_step
-                print(y_new)
                 if B is not None:
                     y_new[:, 0] = np.dot(B, y_new[:, 0])
                 p_new = p - alpha * p_step
@@ -610,8 +626,13 @@ class Collocation_system():
             if njev == max_njev:
                 break
 
-            if (np.all(np.abs(col_res) < tol_r * (1 + np.abs(f_middle[:, f_middle.shape[1]//2, :].T))) and
-                    np.all(np.abs(bc_res) < bc_tol)):
+            print("Max absolute col residual: ", np.max(np.abs(col_res)))
+            print("Max relative col residual: ", np.max(np.abs(col_res) / (1 + np.abs(f_middle[:, f_middle.shape[1]//2, :].T))))
+            print("Max absolute bc residual: ", np.max(np.abs(bc_res)))
+            print((np.all(np.abs(col_res) < tol_r * (1 + np.abs(f_middle[:, f_middle.shape[1]//2, :].T)))))
+            print(np.all(np.abs(bc_res) < bc_tol))
+
+            if (np.all(np.abs(col_res) < tol_r * (1 + np.abs(f_middle[:, f_middle.shape[1]//2, :].T))) and np.all(np.abs(bc_res) < bc_tol)):
                 break
 
             # If the full step was taken, then we are going to continue with
@@ -625,8 +646,38 @@ class Collocation_system():
 
         return y, p, singular
 
+    def create_spline(self, y, y_middle, f, f_middle):
 
-def create_spline(y, yp, x, h):
+        x = self.x
+
+        x0, x1 = x[:-1], x[1:]                                                    # (m-1)
+        x_stages = x0[:, None] + (x1 - x0)[:, None] * self.c[None, :]             # (m-1) x (s)
+        x_middle = x_stages[:, 1:-1]                                              # (m-1) x (s-2)
+
+        y0, y1 = y[:, :-1].T, y[:, 1:].T                                          # (m-1) x n
+        f0, f1 = f[:, :-1].T, f[:, 1:].T                                          # (m-1) x n
+
+        print('here')
+        for elem in (y0, y_middle, y1):
+            print(elem.shape)
+
+        entire_y = np.concatenate((y0[:, None, :], y_middle, y1[:, None, :]), axis=1) # m, s, n
+        entire_f = np.concatenate((f0[:, None, :], f_middle, f1[:, None, :]), axis=1) # m, s, n
+        print(entire_y.shape)
+
+        from hermite_interp import hermite_interp
+
+        # hermite interp expects # n, s, m
+        entire_f = entire_f.transpose([2, 1, 0])
+        entire_y = entire_y.transpose([2, 1, 0])
+        pp = hermite_interp(x_stages.T, entire_y, entire_f)
+        return pp
+
+
+
+
+
+def create_spline_orig(y, yp, x, h):
     """Create a cubic spline given values and derivatives.
 
     Formulas for the coefficients are taken from interpolate.CubicSpline.
@@ -843,7 +894,8 @@ def solve_bvp(fun, bc, x, y, s=5, p=None, S=None, fun_jac=None, bc_jac=None, tol
         p = np.asarray(p, dtype=dtype)
     if p.ndim != 1:
         raise ValueError("`p` must be 1 dimensional.")
-
+    
+    
     if tol < 100 * EPS:
         warn(f"`tol` is too low, setting to {100 * EPS:.2e}", stacklevel=2)
         tol = 100 * EPS
@@ -902,12 +954,8 @@ def solve_bvp(fun, bc, x, y, s=5, p=None, S=None, fun_jac=None, bc_jac=None, tol
     while True:
         m = x.shape[0]
 
-
         y, p, singular = col_sys.solve_newton(y, p, B, tol, bc_tol)
         iteration += 1
-
-
-        # print(col_sys.collocation_fun(y, p))
 
         plt.plot(x, y.T)
         plt.show()
@@ -919,12 +967,10 @@ def solve_bvp(fun, bc, x, y, s=5, p=None, S=None, fun_jac=None, bc_jac=None, tol
         # This relation is not trivial, but can be verified.
         r_middle = 1.5 * col_res / h
 
-        print("here")
-        sol = create_spline(y, f, x, h)
+        # sol = col_sys.create_spline(y, y_middle, f, f_middle)
+        sol = create_spline_orig(y, f, x, h)
 
         print(type(sol))
-
-
         return sol
     
 

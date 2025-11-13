@@ -132,19 +132,6 @@ def compute_jac_indices(n, m, k):
     i_p_bc = np.repeat(np.arange((m - 1) * n, m * n + k), k)
     j_p_bc = np.tile(np.arange(m * n, m * n + k), n + k)
 
-    print("i_col")
-    print(i_col)
-    print("j_col")
-    print(j_col)
-    print("i_bc")
-    print(i_bc)
-    print("j_bc")
-    print(j_bc)
-    print("i_p_col")
-    print(i_p_col)
-    print("j_p_col")
-    print(j_p_col)
-
 
     i = np.hstack((i_col, i_col, i_bc, i_bc, i_p_col, i_p_bc))
     j = np.hstack((j_col, j_col + n,
@@ -275,18 +262,6 @@ def construct_global_jac(n, m, k, i_jac, j_jac, h, df_dy, df_dy_middle, df_dp,
     values = np.hstack((dPhi_dy_0.ravel(), dPhi_dy_1.ravel(), dbc_dya.ravel(),
                         dbc_dyb.ravel()))
     
-    print('in values')
-    print(dPhi_dy_0.shape)
-    print(dPhi_dy_1.shape)
-
-    print('in values')
-    print(dPhi_dy_0)
-    print('-------')
-    print(dPhi_dy_1)
-
-    print(len(values))
-
-    input("jajaj")
 
     if k > 0:
         df_dp = np.transpose(df_dp, (2, 0, 1))
@@ -338,13 +313,6 @@ def collocation_fun(fun, y, p, x, h):
     col_res = y[:, 1:] - y[:, :-1] - h / 6 * (f[:, :-1] + f[:, 1:] +
                                               4 * f_middle)
     
-    
-    print("First call of collocation_fun")
-    print(fun, y, p, x, h)
-    print("------")
-    print(col_res,  y_middle,     f,        f_middle)
-    input("continue")
-
 
     return col_res, y_middle, f, f_middle
 
@@ -520,9 +488,7 @@ def solve_newton(n, m, h, col_fun, bc, jac, y, p, B, bvp_tol, bc_tol):
         if njev == max_njev:
             break
 
-        print(f_middle.shape)
-        print(tol_r.shape)
-        input('bs')
+
         if (np.all(np.abs(col_res) < tol_r * (1 + np.abs(f_middle))) and
                 np.all(np.abs(bc_res) < bc_tol)):
             break
@@ -1099,7 +1065,7 @@ def solve_bvp(fun, bc, x, y, p=None, S=None, fun_jac=None, bc_jac=None,
         bc_tol = tol
 
     # Maximum number of iterations
-    max_iteration = 10
+    max_iteration = 100
 
     fun_wrapped, bc_wrapped, fun_jac_wrapped, bc_jac_wrapped = wrap_functions(
         fun, bc, fun_jac, bc_jac, k, a, S, D, dtype)
@@ -1138,6 +1104,15 @@ def solve_bvp(fun, bc, x, y, p=None, S=None, fun_jac=None, bc_jac=None,
         sol = create_spline(y, f, x, h)
         rms_res = estimate_rms_residuals(fun_wrapped, sol, x, h, p,
                                          r_middle, f_middle)
+        
+        print("Coefficients last polynomial, u_s comp:", sol.c[:, -1, 3])
+
+        # print("Limit values")
+        # print("Norm", sol(x[-2], 0)[3], sol(x[-1], 0)[3])
+        # print("Deriv", sol(x[-2], 1)[3], sol(x[-1], 1)[3])
+        # print("2Deriv", sol(x[-2], 2)[3], sol(x[-1], 2)[3])
+        
+        print("rms last elements:", rms_res[-10:])
         max_rms_res = np.max(rms_res)
 
         if singular:
@@ -1159,7 +1134,11 @@ def solve_bvp(fun, bc, x, y, p=None, S=None, fun_jac=None, bc_jac=None,
         if verbose == 2:
             print_iteration_progress(iteration, max_rms_res, max_bc_res, m,
                                      nodes_added)
+            
 
+        if iteration >= max_iteration:
+            status = 3
+            break
         if nodes_added > 0:
             x = modify_mesh(x, insert_1, insert_2)
             h = np.diff(x)
@@ -1167,6 +1146,8 @@ def solve_bvp(fun, bc, x, y, p=None, S=None, fun_jac=None, bc_jac=None,
         elif max_bc_res <= bc_tol:
             status = 0
             break
+
+        
         elif iteration >= max_iteration:
             status = 3
             break
