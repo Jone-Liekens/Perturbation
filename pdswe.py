@@ -104,8 +104,8 @@ class PDSWE():
         s2_x_dx = h_x_dx * 8 * (1-h_x) / self.a_r**2 * s2_x
 
         eta0_x = 0.5 * (1 + s1_x)
-        Y0_x  = eta0_x + self.a_r / 4 / pi**0.5 * s2_x
-        Y0_x_dx = 0.5 * s1_x_dx + self.a_r / 4 / pi**0.5 * s2_x_dx
+        Y0_x  = eta0_x * (1 - h_x) + self.a_r / 4 / pi**0.5 * s2_x
+        Y0_x_dx = 0.5 * (s1_x_dx * (1 - h_x) - (s1_x + 1) * h_x_dx) + self.a_r / 4 / pi**0.5 * s2_x_dx
 
         dz0c_x_dx = 1 / self.kappa * (- self.r / Y0_x * u0c_x - u0s_x)
         dz0s_x_dx = 1 / self.kappa * (- self.r / Y0_x * u0s_x + u0c_x)
@@ -127,8 +127,8 @@ class PDSWE():
 
         # leading order
         eta0_x = 0.5 * (1 + s1_x)
-        Y0_x  = eta0_x + self.a_r / 4 / pi**0.5 * s2_x
-        Y0_x_dx = 0.5 * s1_x_dx + self.a_r / 4 / pi**0.5 * s2_x_dx
+        Y0_x  = eta0_x * (1 - h_x) + self.a_r / 4 / pi**0.5 * s2_x
+        Y0_x_dx = 0.5 * (s1_x_dx * (1 - h_x) - (s1_x + 1) * h_x_dx) + self.a_r / 4 / pi**0.5 * s2_x_dx
 
         dz0c_x_dx = 1 / self.kappa * (- self.r / Y0_x * u0c_x - u0s_x)
         dz0s_x_dx = 1 / self.kappa * (- self.r / Y0_x * u0s_x + u0c_x)
@@ -138,38 +138,40 @@ class PDSWE():
         # first order
         eta1c_x = dz0c_x * 2 / pi**0.5 / self.a_r * s2_x
         eta1s_x = dz0s_x * 2 / pi**0.5 / self.a_r * s2_x
-        Y1c_x = dz0c_x * (eta0_x + 2 / pi**0.5 / self.a_r * h_x * s2_x)
-        Y1s_x = dz0s_x * (eta0_x + 2 / pi**0.5 / self.a_r * h_x * s2_x)
-        Y1c_x_dx = dz0c_x_dx * (eta0_x + 2 / pi**0.5 / self.a_r * h_x * s2_x) + \
-                dz0c_x * (0.5 * s1_x_dx + 2 / pi**0.5 / self.a_r * (h_x_dx * s2_x + h_x * s2_x_dx))
-        Y1s_x_dx = dz0s_x_dx * (eta0_x + 2 / pi**0.5 / self.a_r * h_x * s2_x) + \
-                dz0s_x * (0.5 * s1_x_dx + 2 / pi**0.5 / self.a_r * (h_x_dx * s2_x + h_x * s2_x_dx))
+
+        Y1c_x = dz0c_x * eta0_x
+        Y1s_x = dz0s_x * eta0_x
+        Y1c_x_dx = dz0c_x_dx * eta0_x + dz0c_x * 0.5 * s1_x_dx
+        Y1s_x_dx = dz0s_x_dx * eta0_x + dz0s_x * 0.5 * s1_x_dx
         
-        dz1r_x_dx = ((- self.r * u1r_x - 0.5 * (  Y1c_x *  u0s_x - Y1s_x *  u0c_x) - 0.5 * (  Y1s_x * dz0s_x_dx + Y1c_x * dz0c_x_dx) * self.kappa) / Y0_x
-            - 0.5 * (u0c_x * u0c_x_dx + u0s_x * u0s_x_dx)            ) / self.kappa 
-        dz1c_x_dx = ((- self.r * u1c_x - 0.5 * (  Y1c_x *  u0s_x + Y1s_x *  u0c_x) - 0.5 * (- Y1s_x * dz0s_x_dx + Y1c_x * dz0c_x_dx) * self.kappa) / Y0_x
-            - 0.5 * (u0c_x * u0c_x_dx - u0s_x * u0s_x_dx) - 2 * u1s_x) / self.kappa
-        dz1s_x_dx = ((- self.r * u1s_x + 0.5 * (  Y1c_x *  u0c_x - Y1s_x *  u0s_x) - 0.5 * (  Y1c_x * dz0s_x_dx + Y1s_x * dz0c_x_dx) * self.kappa) / Y0_x
-            - 0.5 * (u0c_x * u0s_x_dx + u0s_x * u0c_x_dx) + 2 * u1c_x) / self.kappa
+        dz1r_x_dx = (
+            (- self.r * u1r_x - 0.5 * (  Y1c_x *  u0s_x - Y1s_x *  u0c_x) - 0.5 * ( Y1c_x * dz0c_x_dx + Y1s_x * dz0s_x_dx) * self.kappa) / Y0_x - 0.5 * (u0c_x * u0c_x_dx + u0s_x * u0s_x_dx)            ) / self.kappa 
+        dz1c_x_dx = (
+            (- self.r * u1c_x - 0.5 * (  Y1c_x *  u0s_x + Y1s_x *  u0c_x) - 0.5 * ( Y1c_x * dz0c_x_dx - Y1s_x * dz0s_x_dx) * self.kappa) / Y0_x - 0.5 * (u0c_x * u0c_x_dx - u0s_x * u0s_x_dx) - 2 * u1s_x) / self.kappa
+        dz1s_x_dx = (
+            (- self.r * u1s_x - 0.5 * ( -Y1c_x *  u0c_x + Y1s_x *  u0s_x) - 0.5 * ( Y1c_x * dz0s_x_dx + Y1s_x * dz0c_x_dx) * self.kappa) / Y0_x - 0.5 * (u0c_x * u0s_x_dx + u0s_x * u0c_x_dx) + 2 * u1c_x) / self.kappa
         
         u1r_x_dx = -1 / Y0_x * (
-            + eta1c_x * dz0s_x - eta1s_x * dz0c_x
-            + 0.5 * (Y1c_x_dx * u0c_x + Y1s_x_dx * u0s_x) + Y0_x * u1r_x
-            + 0.5 * (Y1c_x * u0c_x_dx + Y1s_x * u0s_x_dx)
+            + 0.5 * ( eta1c_x * dz0s_x - eta1s_x * dz0c_x)
+            + 0.5 * ( Y1c_x_dx * u0c_x + Y1s_x_dx * u0s_x)
+            + 0.5 * ( Y1c_x * u0c_x_dx + Y1s_x * u0s_x_dx)
+            + Y0_x_dx * u1r_x
         )
 
         u1c_x_dx = -1 / Y0_x * (
-            2 * eta0_x * dz1s_x
-            + eta1c_x * dz0s_x + eta1s_x * dz0c_x
-            + 0.5 * (Y1c_x_dx * u0c_x - Y1s_x_dx * u0s_x) + Y0_x * u1c_x
-            + 0.5 * (Y1c_x * u0c_x_dx - Y1s_x * u0s_x_dx)
+            + 2 * eta0_x * dz1s_x
+            + 0.5 * ( eta1c_x * dz0s_x + eta1s_x * dz0c_x)
+            + 0.5 * ( Y1c_x_dx * u0c_x - Y1s_x_dx * u0s_x)
+            + 0.5 * ( Y1c_x * u0c_x_dx - Y1s_x * u0s_x_dx)
+            + Y0_x_dx * u1c_x
         )
 
         u1s_x_dx = -1 / Y0_x * (
-            2 * eta0_x * dz1c_x
-            - eta1c_x * dz0c_x + eta1s_x * dz0s_x
-            + 0.5 * (Y1c_x_dx * u0s_x + Y1s_x_dx * u0c_x) + Y0_x * u1s_x
-            + 0.5 * (Y1c_x * u0s_x_dx + Y1s_x * u0c_x_dx)
+            - 2 * eta0_x * dz1c_x
+            + 0.5 * (-eta1c_x * dz0c_x + eta1s_x * dz0s_x)
+            + 0.5 * ( Y1c_x_dx * u0s_x + Y1s_x_dx * u0c_x)
+            + 0.5 * ( Y1c_x * u0s_x_dx + Y1s_x * u0c_x_dx)
+            + Y0_x_dx * u1s_x
         )
 
         return np.array([dz0c_x_dx, dz0s_x_dx, u0c_x_dx, u0s_x_dx, \
@@ -204,6 +206,41 @@ class PDSWE():
         ]
     
 
+    def defina_vars(self, x_x, y_x):
+        dz0c_x, dz0s_x, u0c_x, u0s_x, dz1r_x, dz1c_x, dz1s_x, u1r_x, u1c_x, u1s_x = y_x
+        h_x, h_x_dx = self.h_fx(x_x), self.h_fx_dx(x_x)
+
+        # helper functions that often appear
+        s1_x = scipy.special.erf(2 * (1 - h_x) / self.a_r)
+        s2_x = exp(-4 * (1-h_x)**2 / self.a_r**2)
+        s1_x_dx = h_x_dx * (-4) / pi**0.5 / self.a_r * s2_x
+        s2_x_dx = h_x_dx * 8 * (1-h_x) / self.a_r**2 * s2_x
+
+        # leading order
+        eta0_x = 0.5 * (1 + s1_x)
+        Y0_x  = eta0_x * (1 - h_x) + self.a_r / 4 / pi**0.5 * s2_x
+        Y0_x_dx = 0.5 * s1_x_dx * (1 - h_x) + self.a_r / 4 / pi**0.5 * s2_x_dx
+
+        dz0c_x_dx = 1 / self.kappa * (- self.r / Y0_x * u0c_x - u0s_x)
+        dz0s_x_dx = 1 / self.kappa * (- self.r / Y0_x * u0s_x + u0c_x)
+        u0c_x_dx = (-eta0_x * dz0s_x - u0c_x * Y0_x_dx)  / Y0_x
+        u0s_x_dx = ( eta0_x * dz0c_x - u0s_x * Y0_x_dx)  / Y0_x
+
+        # first order
+        eta1c_x = dz0c_x * 2 / pi**0.5 / self.a_r * s2_x
+        eta1s_x = dz0s_x * 2 / pi**0.5 / self.a_r * s2_x
+
+        Y1c_x = dz0c_x * eta0_x
+        Y1s_x = dz0s_x * eta0_x
+        Y1c_x_dx = dz0c_x_dx * eta0_x + dz0c_x * 0.5 * s1_x_dx
+        Y1s_x_dx = dz0s_x_dx * eta0_x + dz0s_x * 0.5 * s1_x_dx
+
+        etaf = 2 / pi**0.5 / self.a_r * s2_x
+        Yf = eta0_x # kind of useless
+
+        return eta0_x, Y0_x, eta1c_x, eta1s_x, dz0c_x, dz0s_x
+
+    
 
     def solve(self):
         n = 1000
@@ -352,6 +389,108 @@ class PDSWE():
             axs[1, i].plot(self.y.x[st:], self.y.y[4 + i, st:])
 
         plt.show()
+
+    def visualize_amplitudes(self, bnd=None, axs=None):
+        # assume self.solve() has been called
+
+        cmplx = np.array([
+            self.y.y[0] + 1j * self.y.y[1],
+            self.y.y[5] + 1j * self.y.y[6],
+            self.y.y[4],
+
+
+            self.y.y[2] + 1j * self.y.y[3],
+            self.y.y[8] + 1j * self.y.y[9],
+            self.y.y[7]
+        ])
+
+        ampl = np.abs(cmplx)
+        phase = np.angle(cmplx)
+        # phase = np.unwrap(phase, axis=1)
+        # phase = np.unwrap(np.unwrap(phase, axis=1), axis=0)
+        if axs is None:
+            fig, axs = plt.subplots(2, 6, figsize=(30, 10))
+
+        bnd = bnd if bnd is not None and bnd > 1e-5 else self.y.x[1]
+        st = np.argmin(abs(self.y.x - bnd))
+
+
+        labels = [r"$\zeta^0_1$",  r"$\zeta^1_2$", r"$\zeta^1_{res,0}$", r"$u^0_1$",  r"$u^1_2$",  r"$u^1_{res,0}$"]
+
+        for j in range(6):
+            axs[0, j].set_title(labels[j])
+            axs[0, j].plot(self.y.x[st:], ampl[j, st:])
+            axs[1, j].plot(self.y.x[st:-2], phase[j, st:-2])
+
+        if axs is None:
+            plt.show()
+
+    
+    def visualize_defina_vars(self, bnd=None, axs=None):
+        x_x, y_x = self.y.x, self.y.y
+        x = x_x
+
+        dz0c_x, dz0s_x, u0c_x, u0s_x, dz1r_x, dz1c_x, dz1s_x, u1r_x, u1c_x, u1s_x = y_x
+        h_x, h_x_dx = self.h_fx(x_x), self.h_fx_dx(x_x)
+
+        # helper functions that often appear
+        s1_x = scipy.special.erf(2 * (1 - h_x) / self.a_r)
+        s2_x = exp(-4 * (1-h_x)**2 / self.a_r**2)
+        s1_x_dx = h_x_dx * (-4) / pi**0.5 / self.a_r * s2_x
+        s2_x_dx = h_x_dx * 8 * (1-h_x) / self.a_r**2 * s2_x
+
+        # leading order
+        eta0_x = 0.5 * (1 + s1_x)
+        Y0_x  = eta0_x * (1 - h_x) + self.a_r / 4 / pi**0.5 * s2_x
+        Y0_x_dx = 0.5 * s1_x_dx * (1 - h_x) + self.a_r / 4 / pi**0.5 * s2_x_dx
+
+        dz0c_x_dx = 1 / self.kappa * (- self.r / Y0_x * u0c_x - u0s_x)
+        dz0s_x_dx = 1 / self.kappa * (- self.r / Y0_x * u0s_x + u0c_x)
+        u0c_x_dx = (-eta0_x * dz0s_x - u0c_x * Y0_x_dx)  / Y0_x
+        u0s_x_dx = ( eta0_x * dz0c_x - u0s_x * Y0_x_dx)  / Y0_x
+
+        # first order
+        eta1c_x = dz0c_x * 2 / pi**0.5 / self.a_r * s2_x
+        eta1s_x = dz0s_x * 2 / pi**0.5 / self.a_r * s2_x
+
+        Y1c_x = dz0c_x * eta0_x
+        Y1s_x = dz0s_x * eta0_x
+        Y1c_x_dx = dz0c_x_dx * eta0_x + dz0c_x * 0.5 * s1_x_dx
+        Y1s_x_dx = dz0s_x_dx * eta0_x + dz0s_x * 0.5 * s1_x_dx
+
+        etaf = 2 / pi**0.5 / self.a_r * s2_x
+        Yf = eta0_x # kind of useless
+
+
+
+        if axs is None:
+            fig, axs = plt.subplots(2, 6, figsize=(30, 10))
+
+        bnd = bnd if bnd is not None and bnd > 1e-5 else self.y.x[1]
+        st = np.argmin(abs(self.y.x - bnd))
+
+        labels = [r"$\zeta^0_1$",  r"$\zeta^1_2$", r"$\zeta^1_{res,0}$", r"$u^0_1$",  r"$u^1_2$",  r"$u^1_{res,0}$"]
+
+
+        eta0_x, Y0_x, eta1c_x, eta1s_x, dz0c_x, dz0s_x
+
+        axs[0, 0].plot(x, eta0_x)
+        axs[1, 0].plot(x, Y0_x)
+
+        axs[0, 1].plot(x, eta1c_x)
+        axs[0, 2].plot(x, eta1c_x)
+        axs[1, 1].plot(x, Y1c_x)
+        axs[1, 2].plot(x, Y1s_x)
+
+        if axs is None:
+            plt.show()
+
+
+
+
+        return eta0_x, Y0_x, eta1c_x, eta1s_x, dz0c_x, dz0s_x
+
+
 
 
 
