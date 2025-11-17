@@ -3,8 +3,8 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+pycollocation_experiments/pycollocation/
 
-*.ipynb
 
 # C extensions
 *.so

@@ -6,7 +6,10 @@ from scipy.special import roots_legendre, eval_legendre
 from numpy.polynomial import chebyshev
 
 
-# 
+from solve_bvp_s45 import solve_bvp as solve_bvp_s45
+from solve_bvp_s2 import solve_bvp as solve_bvp_s2
+from solve_bvp_orig import solve_bvp as solve_bvp_orig
+
 class PerturbationCSWESolution(): pass
 
 class PerturbationCSWE():
@@ -27,6 +30,7 @@ class PerturbationCSWE():
         self.h0 = 0.0025
         self.small_number = nan
         self.bc = self.bc_moving_boundary
+
 
 
         # morphodynamics
@@ -111,19 +115,17 @@ class PerturbationCSWE():
 
         # derivatives of u at x = 1 (using l'hopital)
 
-        print(u0c_x_dx, dz0s_x_dx, u0c_x)
-        print("here", h_x_dx)
 
-        if isinstance(x_x, np.ndarray):
+        # if isinstance(x_x, np.ndarray):
             
-            u0c_x_dx[-1] =  ( dz0s_x_dx[-1] - u0c_x[-1] * h_x_dxx)  / (2*h_x_dx[-1])
-            u0s_x_dx[-1] =  (-dz0c_x_dx[-1] - u0s_x[-1] * h_x_dxx)  / (2*h_x_dx[-1])
+        #     u0c_x_dx[-1] =  ( dz0s_x_dx[-1] - u0c_x[-1] * h_x_dxx)  / (2*h_x_dx[-1])
+        #     u0s_x_dx[-1] =  (-dz0c_x_dx[-1] - u0s_x[-1] * h_x_dxx)  / (2*h_x_dx[-1])
 
-            # u0c_x_dx = np.nan_to_num(u0c_x_dx, nan=0.0, posinf=0.0, neginf=0.0)
+        #     # u0c_x_dx = np.nan_to_num(u0c_x_dx, nan=0.0, posinf=0.0, neginf=0.0)
 
-        elif abs(x_x - 1) < 1e-14:
-            u0c_x_dx =  ( dz0s_x_dx - u0c_x * h_x_dxx)  / (2*h_x_dx)
-            u0s_x_dx =  (-dz0c_x_dx - u0s_x * h_x_dxx)  / (2*h_x_dx)
+        # elif abs(x_x - 1) < 1e-14:
+        #     u0c_x_dx =  ( dz0s_x_dx - u0c_x * h_x_dxx)  / (2*h_x_dx)
+        #     u0s_x_dx =  (-dz0c_x_dx - u0s_x * h_x_dxx)  / (2*h_x_dx)
 
         
 
@@ -371,10 +373,7 @@ class PerturbationCSWE():
         if sol.status or self.debug:
             print(sol)
             raise SystemError
-
-
-
-
+        
     def solve_LO(self):
         self.x = linspace(0, 1, 2000)
         
@@ -430,6 +429,7 @@ class PerturbationCSWE():
         x = sol.x 
         u_xt = sol.u_xt
 
+
         try:
             # if solve has been run
             dz0_c, dz0_s, u0_c, u0_s, dz1_r, dz1_c, dz1_s, u1_r, u1_c, u1_s = self.y.y
@@ -453,66 +453,62 @@ class PerturbationCSWE():
         d_u1_s = 1 / (1 - h_x + self.small_number) * (h_x_dx * u1_s + 2 * dz1_c - 1 / 2 * (dz0_s * d_u0_c + d_dz0_s * u0_c + dz0_c * d_u0_s + d_dz0_c * u0_s))
 
 
-        # Engelund Hansen formula
-        factor = 0.04 * self.c_d**(3/2) / (self.g * (self.s-1))**2 / self.d50 
-        U5 = (self.A * self.sigma * self.L / self.H)**5
 
-        print(factor)
-        print(U5)
+        # Engelund Hansen formula
+        factor = 0.04 * self.c_d**(3/2) / (self.g * (self.s-1))**2 / self.d50 * (self.A * self.sigma * self.L / self.H)**5
+
+        print("f", factor)
+
 
 
 
         # just u^5 dimensionless
         u5_xt = u_xt**5
+
         # instantaneous transport
-        q_xt = factor * U5 * u_xt**5
+        q_xt = factor * u_xt**5
 
 
+        # time integration of u^5 dimensionless
+        # -------------------------------------
+        u5_x = self.epsilon*((5*pi*d_u1_c/2 + 15*pi*d_u1_r/4)*u0_c**4 + (5*pi*u0_s*d_u1_s + 5*pi*u1_s*d_u0_s)*u0_c**3 + (15*pi*u0_s**2*d_u1_r/2 + 15*pi*u0_s*u1_r*d_u0_s)*u0_c**2 + (5*pi*u0_s**3*d_u1_s + 15*pi*u0_s**2*u1_r*d_u0_c + 15*pi*u0_s**2*u1_s*d_u0_s)*u0_c + (10*pi*u0_c**3*u1_c + 15*pi*u0_c**3*u1_r + 15*pi*u0_c**2*u0_s*u1_s + 5*pi*u0_s**3*u1_s)*d_u0_c - 5*pi*u0_s**4*d_u1_c/2 + 15*pi*u0_s**4*d_u1_r/4 - 10*pi*u0_s**3*u1_c*d_u0_s + 15*pi*u0_s**3*u1_r*d_u0_s)
+        
         # time integration of instantaneous transport
         # -------------------------------------------
-        u5_x = self.epsilon*((5*pi*d_u1_c/2 + 15*pi*d_u1_r/4)*u0_c**4 + (5*pi*u0_s*d_u1_s + 5*pi*u1_s*d_u0_s)*u0_c**3 + (15*pi*u0_s**2*d_u1_r/2 + 15*pi*u0_s*u1_r*d_u0_s)*u0_c**2 + (5*pi*u0_s**3*d_u1_s + 15*pi*u0_s**2*u1_r*d_u0_c + 15*pi*u0_s**2*u1_s*d_u0_s)*u0_c + (10*pi*u0_c**3*u1_c + 15*pi*u0_c**3*u1_r + 15*pi*u0_c**2*u0_s*u1_s + 5*pi*u0_s**3*u1_s)*d_u0_c - 5*pi*u0_s**4*d_u1_c/2 + 15*pi*u0_s**4*d_u1_r/4 - 10*pi*u0_s**3*u1_c*d_u0_s + 15*pi*u0_s**3*u1_r*d_u0_s)
+
         # analytically
-        q_x = U5 * factor / 2 / pi * self.epsilon*((5*pi*u1_c/2 + 15*pi*u1_r/4)*u0_c**4 + 5*pi*u0_c**3*u0_s*u1_s + 15*pi*u0_c**2*u0_s**2*u1_r/2 + 5*pi*u0_c*u0_s**3*u1_s - 5*pi*u0_s**4*u1_c/2 + 15*pi*u0_s**4*u1_r/4)
+        q_x = factor / self.sigma * self.epsilon*((5*pi*u1_c/2 + 15*pi*u1_r/4)*u0_c**4 + 5*pi*u0_c**3*u0_s*u1_s + 15*pi*u0_c**2*u0_s**2*u1_r/2 + 5*pi*u0_c*u0_s**3*u1_s - 5*pi*u0_s**4*u1_c/2 + 15*pi*u0_s**4*u1_r/4)
+
         # trapezoidal rule
-        q_x_trap = np.mean(q_xt, 1)
+        q_x_trap = np.mean(q_xt, 1) * 2 * pi / self.sigma
+
         # # Gauss_Legendre
         # roots, weights = roots_legendre(100)
         # q_xt_interp = np.array([np.interp(roots*2*pi, linspace(0, 2*pi, q_xt.shape[1]), q_xt[x_i, :]) for x_i in range(len(x))]) # time is equidistant
         # q_x_gl = np.sum(q_xt_interp * weights[np.newaxis, :], 1) * 2 * pi / self.sigma
+        q_x_gl = q_x_trap # sometimes this integration doesnt work, so for simplicity just equal it to trapz rule
 
 
         # spatial derivative of time integration of instantaneous transport
         # -----------------------------------------------------------------
-
-        print(U5 * factor / 2 / pi / self.L * self.epsilon)
+        q_x_dx =   1 / factor / self.sigma / self.L * self.epsilon*((5*pi*d_u1_c/2 + 15*pi*d_u1_r/4)*u0_c**4 + (5*pi*u0_s*d_u1_s + 5*pi*u1_s*d_u0_s)*u0_c**3 + (15*pi*u0_s**2*d_u1_r/2 + 15*pi*u0_s*u1_r*d_u0_s)*u0_c**2 + (5*pi*u0_s**3*d_u1_s + 15*pi*u0_s**2*u1_r*d_u0_c + 15*pi*u0_s**2*u1_s*d_u0_s)*u0_c + (10*pi*u0_c**3*u1_c + 15*pi*u0_c**3*u1_r + 15*pi*u0_c**2*u0_s*u1_s + 5*pi*u0_s**3*u1_s)*d_u0_c - 5*pi*u0_s**4*d_u1_c/2 + 15*pi*u0_s**4*d_u1_r/4 - 10*pi*u0_s**3*u1_c*d_u0_s + 15*pi*u0_s**3*u1_r*d_u0_s)
         
-        u5_x_dx = self.epsilon*((5*pi*d_u1_c/2 + 15*pi*d_u1_r/4)*u0_c**4 + (5*pi*u0_s*d_u1_s + 5*pi*u1_s*d_u0_s)*u0_c**3 + (15*pi*u0_s**2*d_u1_r/2 + 15*pi*u0_s*u1_r*d_u0_s)*u0_c**2 + (5*pi*u0_s**3*d_u1_s + 15*pi*u0_s**2*u1_r*d_u0_c + 15*pi*u0_s**2*u1_s*d_u0_s)*u0_c + (10*pi*u0_c**3*u1_c + 15*pi*u0_c**3*u1_r + 15*pi*u0_c**2*u0_s*u1_s + 5*pi*u0_s**3*u1_s)*d_u0_c - 5*pi*u0_s**4*d_u1_c/2 + 15*pi*u0_s**4*d_u1_r/4 - 10*pi*u0_s**3*u1_c*d_u0_s + 15*pi*u0_s**3*u1_r*d_u0_s)
-        q_x_dx = U5 * factor / 2 / pi / self.L * self.epsilon*((5*pi*d_u1_c/2 + 15*pi*d_u1_r/4)*u0_c**4 + (5*pi*u0_s*d_u1_s + 5*pi*u1_s*d_u0_s)*u0_c**3 + (15*pi*u0_s**2*d_u1_r/2 + 15*pi*u0_s*u1_r*d_u0_s)*u0_c**2 + (5*pi*u0_s**3*d_u1_s + 15*pi*u0_s**2*u1_r*d_u0_c + 15*pi*u0_s**2*u1_s*d_u0_s)*u0_c + (10*pi*u0_c**3*u1_c + 15*pi*u0_c**3*u1_r + 15*pi*u0_c**2*u0_s*u1_s + 5*pi*u0_s**3*u1_s)*d_u0_c - 5*pi*u0_s**4*d_u1_c/2 + 15*pi*u0_s**4*d_u1_r/4 - 10*pi*u0_s**3*u1_c*d_u0_s + 15*pi*u0_s**3*u1_r*d_u0_s)
-        q_x_dx_num = np.gradient(q_x, x) / self.L
-        u5_x = self.epsilon*((5*pi*u1_c/2 + 15*pi*u1_r/4)*u0_c**4 + 5*pi*u0_c**3*u0_s*u1_s + 15*pi*u0_c**2*u0_s**2*u1_r/2 + 5*pi*u0_c*u0_s**3*u1_s - 5*pi*u0_s**4*u1_c/2 + 15*pi*u0_s**4*u1_r/4)
-        
-        # plt.plot(x, u5_x_dx)
-        # plt.show()
-        # plt.plot(x, u5_x)
-        # plt.show()
         
 
         # bedload transport
         # -----------------
-        b_x = (1 - self.p) * self.lmbda * self.H / self.L * h_x_dx * np.ones(x.shape)
+        b_x = (1 - self.p) * self.lmbda / self.L * self.H * h_x_dx * np.ones(x.shape)
 
         # spatial derivative of bedload transport?
         # cannot compute this analytically without d^2h/dx^2  
         # numerical approx:
-        b_x_dx = np.gradient(b_x, x) / self.L
+        b_x_dx = np.gradient(b_x, x) / self.L  
 
 
         # effect on the time derivative of the bed
+        h_x_dt = (-q_x_dx + b_x_dx) / self.H # (dimensionless)
 
-        print(self.H / self.sigma / (1-self.p))
-        h_x_dt = (-q_x_dx + b_x_dx) / self.H / self.sigma / (1 - self.p) # (dimensionless)
-
-        return x, u5_xt, q_xt, q_x, q_x_trap, q_x_dx, q_x_dx_num, b_x, b_x_dx, h_x_dt
+        return x, u5_xt, u5_x, q_xt, q_x, q_x_trap, q_x_gl, q_x_dx, b_x, b_x_dx, h_x_dt
 
 
 
@@ -585,7 +581,7 @@ class PerturbationCSWE():
 
         self.solve()
         
-        x, u5_xt, q_xt, q_x, q_x_trap, q_x_dx, q_x_dx_num, b_x, b_x_dx, h_x_dt = self.transport()
+        x, u5_xt, u5_x, q_xt, q_x, q_x_trap, q_x_gl, q_x_dx, b_x, b_x_dx, h_x_dt = self.transport()
 
 
         size = (np.max(h_x_dt) - np.min(h_x_dt))
@@ -610,12 +606,12 @@ class PerturbationCSWE():
         return
     
     def visualize_transport(self):
-        x, u5_xt, q_xt, q_x, q_x_trap, q_x_dx, q_x_dx_num, b_x, b_x_dx, h_x_dt = self.transport()
+        x, u5_xt, u5_x, q_xt, q_x, q_x_trap, q_x_gl, q_x_dx, b_x, b_x_dx, h_x_dt = self.transport()
 
         fig, axs = plt.subplots(2, 3, figsize=(9, 6))
         axs[0, 0].plot(x, self.h_fx(x), 'brown', linewidth=4)
         axs[0, 1].plot(x, q_x_trap, 'o')
-        # axs[0, 1].plot(x, q_x_gl, 'x', ms=5)
+        axs[0, 1].plot(x, q_x_gl, 'x', ms=5)
         axs[0, 1].plot(x, q_x, 'k')
         axs[0, 2].plot(x, b_x)
 

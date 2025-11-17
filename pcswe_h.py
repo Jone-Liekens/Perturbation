@@ -29,6 +29,7 @@ class PerturbationCSWE():
         self.bc = self.bc_moving_boundary
 
 
+
         # morphodynamics
         self.p = 0.4 # porosity
         self.c_d = 0.0025
@@ -111,19 +112,17 @@ class PerturbationCSWE():
 
         # derivatives of u at x = 1 (using l'hopital)
 
-        print(u0c_x_dx, dz0s_x_dx, u0c_x)
-        print("here", h_x_dx)
 
-        if isinstance(x_x, np.ndarray):
+        # if isinstance(x_x, np.ndarray):
             
-            u0c_x_dx[-1] =  ( dz0s_x_dx[-1] - u0c_x[-1] * h_x_dxx)  / (2*h_x_dx[-1])
-            u0s_x_dx[-1] =  (-dz0c_x_dx[-1] - u0s_x[-1] * h_x_dxx)  / (2*h_x_dx[-1])
+        #     u0c_x_dx[-1] =  ( dz0s_x_dx[-1] - u0c_x[-1] * h_x_dxx)  / (2*h_x_dx[-1])
+        #     u0s_x_dx[-1] =  (-dz0c_x_dx[-1] - u0s_x[-1] * h_x_dxx)  / (2*h_x_dx[-1])
 
-            # u0c_x_dx = np.nan_to_num(u0c_x_dx, nan=0.0, posinf=0.0, neginf=0.0)
+        #     # u0c_x_dx = np.nan_to_num(u0c_x_dx, nan=0.0, posinf=0.0, neginf=0.0)
 
-        elif abs(x_x - 1) < 1e-14:
-            u0c_x_dx =  ( dz0s_x_dx - u0c_x * h_x_dxx)  / (2*h_x_dx)
-            u0s_x_dx =  (-dz0c_x_dx - u0s_x * h_x_dxx)  / (2*h_x_dx)
+        # elif abs(x_x - 1) < 1e-14:
+        #     u0c_x_dx =  ( dz0s_x_dx - u0c_x * h_x_dxx)  / (2*h_x_dx)
+        #     u0s_x_dx =  (-dz0c_x_dx - u0s_x * h_x_dxx)  / (2*h_x_dx)
 
         
 
@@ -155,8 +154,73 @@ class PerturbationCSWE():
 
         return np.array([dz1r_x_dx, dz1c_x_dx, dz1s_x_dx, u1r_x_dx, u1c_x_dx, u1s_x_dx])
     
+    def deriv_h(self, x_x, y_x):
+        dz0c_x, dz0s_x, u0c_x, u0s_x, dz1r_x, dz1c_x, dz1s_x, u1r_x, u1c_x, u1s_x, h_x, h_x_dx = y_x
 
+        dz0c_x_dx = 1 / self.kappa * ( - self.r / (1 - h_x + self.h0) * u0c_x - u0s_x)
+        dz0s_x_dx = 1 / self.kappa * ( - self.r / (1 - h_x + self.h0) * u0s_x + u0c_x)
+        u0c_x_dx = (-dz0s_x + u0c_x * h_x_dx)  / (1 - h_x)
+        u0s_x_dx = ( dz0c_x + u0s_x * h_x_dx)  / (1 - h_x)
+
+        dz1r_x_dx = (1 / (1 - h_x + self.h0) * (- self.r * u1r_x - 0.5 * (  dz0c_x *  u0s_x - dz0s_x *  u0c_x)
+            - 0.5 * (  dz0s_x * dz0s_x_dx + dz0c_x * dz0c_x_dx) * self.kappa) - 0.5 * (u0c_x * u0c_x_dx + u0s_x * u0s_x_dx)            ) / self.kappa
+        dz1c_x_dx = (1 / (1 - h_x + self.h0) * (- self.r * u1c_x - 0.5 * (  dz0c_x *  u0s_x + dz0s_x *  u0c_x)
+            - 0.5 * (- dz0s_x * dz0s_x_dx + dz0c_x * dz0c_x_dx) * self.kappa) - 0.5 * (u0c_x * u0c_x_dx - u0s_x * u0s_x_dx) - 2 * u1s_x) / self.kappa
+        dz1s_x_dx = (1 / (1 - h_x + self.h0) * (- self.r * u1s_x + 0.5 * (  dz0c_x *  u0c_x - dz0s_x *  u0s_x)
+            - 0.5 * (  dz0c_x * dz0s_x_dx + dz0s_x * dz0c_x_dx) * self.kappa) - 0.5 * (u0c_x * u0s_x_dx + u0s_x * u0c_x_dx) + 2 * u1c_x) / self.kappa
+        u1r_x_dx = 1 / (1 - h_x + self.small_number) * (h_x_dx * u1r_x              - 1 / 2 * (dz0c_x * u0c_x_dx + dz0c_x_dx * u0c_x + dz0s_x * u0s_x_dx + dz0s_x_dx * u0s_x))
+        u1c_x_dx = 1 / (1 - h_x + self.small_number) * (h_x_dx * u1c_x - 2 * dz1s_x - 1 / 2 * (dz0c_x * u0c_x_dx + dz0c_x_dx * u0c_x - dz0s_x * u0s_x_dx - dz0s_x_dx * u0s_x))
+        u1s_x_dx = 1 / (1 - h_x + self.small_number) * (h_x_dx * u1s_x + 2 * dz1c_x - 1 / 2 * (dz0s_x * u0c_x_dx + dz0s_x_dx * u0c_x + dz0c_x * u0s_x_dx + dz0c_x_dx * u0s_x))
+
+        factor = 0.04 * self.c_d**(3/2) / (self.g * (self.s-1))**2 / self.d50 
+        U5 = (self.A * self.sigma * self.L / self.H)**5
+
+
+        q_x_dx = U5 * factor / 2 / pi / self.L * self.epsilon*(5*pi*u0c_x**4*u1c_x_dx/2 + 15*pi*u0c_x**4*u1r_x_dx/4 + 5*pi*u0c_x**3*u0s_x*u1s_x_dx + 10*pi*u0c_x**3*u1c_x*u0c_x_dx + 15*pi*u0c_x**3*u1r_x*u0c_x_dx + 5*pi*u0c_x**3*u1s_x*u0s_x_dx + 15*pi*u0c_x**2*u0s_x**2*u1r_x_dx/2 + 15*pi*u0c_x**2*u0s_x*u1r_x*u0s_x_dx + 15*pi*u0c_x**2*u0s_x*u1s_x*u0c_x_dx + 5*pi*u0c_x*u0s_x**3*u1s_x_dx + 15*pi*u0c_x*u0s_x**2*u1r_x*u0c_x_dx + 15*pi*u0c_x*u0s_x**2*u1s_x*u0s_x_dx - 5*pi*u0s_x**4*u1c_x_dx/2 + 15*pi*u0s_x**4*u1r_x_dx/4 - 10*pi*u0s_x**3*u1c_x*u0s_x_dx + 15*pi*u0s_x**3*u1r_x*u0s_x_dx + 5*pi*u0s_x**3*u1s_x*u0c_x_dx)
+        # b_x = (1 - self.p) * self.lmbda * self.H / self.L * h_x_dx * np.ones(x_x.shape)
+        # b_x_dx = np.gradient(b_x, x_x) / self.L
+        # h_x_dt = (-q_x_dx + b_x_dx) / self.H / self.sigma / (1 - self.p) # (dimensionless)
+        h_x_dxx = q_x_dx / self.lmbda * self.L**2 / self.H / (1-self.p)
+
+        return np.array([dz0c_x_dx, dz0s_x_dx, u0c_x_dx, u0s_x_dx, \
+                         dz1r_x_dx, dz1c_x_dx, dz1s_x_dx, u1r_x_dx, u1c_x_dx, u1s_x_dx, \
+                         h_x_dx, h_x_dxx])
+    
+    def bc_h(self, y_l, y_r):
+        dz0c_l, dz0s_l, u0c_l, u0s_l, dz1r_l, dz1c_l, dz1s_l, u1r_l, u1c_l, u1s_l, h_l, h_l_dx = y_l
+        dz0c_r, dz0s_r, u0c_r, u0s_r, dz1r_r, dz1c_r, dz1s_r, u1r_r, u1c_r, u1s_r, h_r, h_r_dx = y_r
+
+        return [
+            dz0c_l - 1,
+            dz0s_l,
+            u0c_r,
+            u0s_r,
+            dz1r_l, 
+            dz1s_l, 
+            dz1c_l,
+            u1r_r,
+            u1c_r,
+            u1s_r,
+            h_l,
+            h_r - 0.9
+        ]
+
+    def solve_h(self):
+        n = 1000
+        self.x = linspace(0, 1, n)
+
+        # initial guess
+        y_guess = 0.1 * np.ones((12, len(self.x)))
+        y_guess[-2, :] = np.linspace(0, 0.9, n)
+        y_guess[-1, :] = 0.9
         
+
+        # sol = scipy.integrate.solve_bvp(self.deriv, self.bc, self.x, y_guess, tol=self.tol, max_nodes=20000, verbose=2)
+        sol = scipy.integrate.solve_bvp(self.deriv_h, self.bc_h, self.x, y_guess, tol=self.tol, max_nodes=20000, verbose=2)
+        self.y = sol
+        if sol.status or self.debug:
+            print(sol)
+            raise SystemError
 
 
     def lhopital_FO(self, x_r, y1_r, y0_r, y0_r_dx, dz1_r_dx):
