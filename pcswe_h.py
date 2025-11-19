@@ -14,6 +14,8 @@ class PerturbationCSWE():
     def __init__(self):
         self.debug = False
 
+        self.max_h = 0.99
+
 
   
 
@@ -202,7 +204,7 @@ class PerturbationCSWE():
             u1c_r,
             u1s_r,
             h_l,
-            h_r - 0.9
+            h_r - self.max_h
         ]
 
     def solve_h(self):
@@ -211,8 +213,8 @@ class PerturbationCSWE():
 
         # initial guess
         y_guess = 0.1 * np.ones((12, len(self.x)))
-        y_guess[-2, :] = np.linspace(0, 0.9, n)
-        y_guess[-1, :] = 0.9
+        y_guess[-2, :] = np.linspace(0, self.max_h, n)
+        y_guess[-1, :] = self.max_h
         
 
         # sol = scipy.integrate.solve_bvp(self.deriv, self.bc, self.x, y_guess, tol=self.tol, max_nodes=20000, verbose=2)
@@ -437,8 +439,6 @@ class PerturbationCSWE():
             raise SystemError
 
 
-
-
     def solve_LO(self):
         self.x = linspace(0, 1, 2000)
         
@@ -578,8 +578,6 @@ class PerturbationCSWE():
 
         return x, u5_xt, q_xt, q_x, q_x_trap, q_x_dx, q_x_dx_num, b_x, b_x_dx, h_x_dt
 
-
-
     def dh_dx(self):
                 # assume solve has already been executed, and we have all 10 components (4 LO 6 FO) calculated
         # compute local transport
@@ -635,7 +633,6 @@ class PerturbationCSWE():
         h_x_dt = (-q_x_dx + b_x_dx) * self.sigma / self.H # (dimensionless)
 
         return h_x_dt
-
 
     def transport_step(self, timestep=1e-3):
 
