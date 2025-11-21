@@ -2,9 +2,6 @@ import numpy as np
 from numpy import sin, cos, tan, atan, cosh, sinh, tanh, abs, linspace, argmin, argmax, pi, mean, exp, sqrt, zeros, ones, nan
 import scipy
 import matplotlib.pyplot as plt
-from scipy.special import roots_legendre, eval_legendre
-from numpy.polynomial import chebyshev
-
 
 
 class PCSWE_mb():
