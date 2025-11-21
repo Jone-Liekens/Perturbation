@@ -7,7 +7,6 @@ from numpy.polynomial import chebyshev
 
 
 
-
 class PCSWE_mb():
 
     def __init__(self):
@@ -180,13 +179,24 @@ class PCSWE_mb():
         return y_x_dx
 
     def deriv_h(self, x_x, y_x):
-        dz0c_x, dz0s_x, u0c_x, u0s_x, dz1r_x, dz1c_x, dz1s_x, u1r_x, u1c_x, u1s_x, h_x, h_x_dx = y_x
+        x_x, y_x = np.asarray(x_x), np.asarray(y_x)
         y0_x, y1_x, yh_x = np.split(y_x, [4, 10], axis=0)
 
-        y0_x_dx = self.deriv_LO(x_x, y0_x)
-        dz0c_x_dx, dz0s_x_dx, u0c_x_dx, u0s_x_dx = y0_x_dx
 
-        y1_x_dx = self.deriv_FO(x_x, y1_x, y0_x, y0_x_dx)
+        y0_x_dx = np.empty_like(y0_x, dtype=y0_x.dtype)
+        mask_hop = abs(1 - x_x) < self.bnd_LO_hop
+        y0_x_dx[:, ~mask_hop] = self.y0_fx_dx    (x_x[~mask_hop], y0_x[:, ~mask_hop])
+        y0_x_dx[:,  mask_hop] = self.y0_fx_dx_hop(x_x[ mask_hop], y0_x[:,  mask_hop])
+
+        y1_x_dx = np.empty_like(y1_x, dtype=y1_x.dtype)
+        mask_hop = abs(1 - x_x) < self.bnd_FO_hop
+        y1_x_dx[:, ~mask_hop] = self.y1_fx_dx    (x_x[~mask_hop], y1_x[:, ~mask_hop], y0_x[:, ~mask_hop], y0_x_dx[:, ~mask_hop])
+        y1_x_dx[:,  mask_hop] = self.y1_fx_dx_hop(x_x[ mask_hop], y1_x[:,  mask_hop], y0_x[:,  mask_hop], y0_x_dx[:,  mask_hop])
+
+        # y_x_dx = np.concatenate((y0_x_dx, y1_x_dx), axis=0)
+
+        dz0c_x, dz0s_x, u0c_x, u0s_x, dz1r_x, dz1c_x, dz1s_x, u1r_x, u1c_x, u1s_x, h_x, h_x_dx = y_x
+        dz0c_x_dx, dz0s_x_dx, u0c_x_dx, u0s_x_dx = y0_x_dx
         dz1r_x_dx, dz1c_x_dx, dz1s_x_dx, u1r_x_dx, u1c_x_dx, u1s_x_dx = y1_x_dx
 
         factor = 0.04 * self.c_d**(3/2) / (self.g * (self.s-1))**2 / self.d50 
@@ -305,17 +315,67 @@ class PCSWE_mb():
             u1s_r - 1 / h_r_dx * (1 / 2 * (dz0c_r * u0s_r_dx + dz0c_r_dx * u0s_r + dz0s_r * u0c_r_dx + dz0s_r_dx * u0c_r) - 2 * dz1c_r)
         ]
 
+    def bc_h(self, y_left, y_right):
+        dz0c_l, dz0s_l, u0c_l, u0s_l, dz1r_l, dz1c_l, dz1s_l, u1r_l, u1c_l, u1s_l, h_l, h_l_dx = y_left
+        dz0c_r, dz0s_r, u0c_r, u0s_r, dz1r_r, dz1c_r, dz1s_r, u1r_r, u1c_r, u1s_r, h_r, h_r_dx = y_right
+
+        h_r_dx = self.h_fx_dx(1)
+        dz0c_r_dx, dz0s_r_dx, u0c_r_dx, u0s_r_dx = self.y0_fx_dx_hop(1, [dz0c_r, dz0s_r, u0c_r, u0s_r])
+
+        return [
+            dz0c_l - 1,
+            dz0s_l,
+            u0c_r - ( dz0s_r / h_r_dx),
+            u0s_r - (-dz0c_r / h_r_dx),
+            dz1r_l, 
+            dz1s_l, 
+            dz1c_l,
+            u1r_r - 1 / h_r_dx * (1 / 2 * (dz0c_r * u0c_r_dx + dz0c_r_dx * u0c_r + dz0s_r * u0s_r_dx + dz0s_r_dx * u0s_r)),
+            u1c_r - 1 / h_r_dx * (1 / 2 * (dz0c_r * u0c_r_dx + dz0c_r_dx * u0c_r - dz0s_r * u0s_r_dx - dz0s_r_dx * u0s_r) + 2 * dz1s_r),
+            u1s_r - 1 / h_r_dx * (1 / 2 * (dz0c_r * u0s_r_dx + dz0c_r_dx * u0s_r + dz0s_r * u0c_r_dx + dz0s_r_dx * u0c_r) - 2 * dz1c_r),
+            h_l,
+            h_r - self.max_h
+        ]
+
     def solve_bvp(self):
         x_x = linspace(0, 1, 2000)
         y_guess = 0.1 * np.ones((10, len(x_x)))
 
         # sol = scipy.integrate.solve_bvp(self.deriv, self.bc, self.x, y_guess, tol=self.tol, max_nodes=20000, verbose=2)
-        sol = scipy.integrate.solve_bvp(self.deriv, self.bc, x_x, y_guess, tol=1e-7, max_nodes=20000, verbose=2)
+        sol = scipy.integrate.solve_bvp(self.deriv, self.bc, x_x, y_guess, tol=1e-7, max_nodes=10000, verbose=2)
         self.y = sol
         if sol.status or self.debug:
             print(sol)
             raise SystemError 
 
+    def solve_h(self):
+        x_x = linspace(0, 1, 1000)
+        y_guess = 0.1 * np.ones((12, len(x_x)))
+        y_guess[-2, :] = self.h_fx(x_x)
+        y_guess[-1, :] = self.h_fx_dx(x_x)
+
+        self.max_h = self.h_fx(1)
+        
+        sol = scipy.integrate.solve_bvp(self.deriv_h, self.bc_h, x_x, y_guess, max_nodes=10000, verbose=2)
+        self.y = sol
+        if sol.status or self.debug:
+            print(sol)
+            raise SystemError
+        
+    def visualize_sol_h(self):
+        fig, axs = plt.subplots(2, 6, figsize=(30, 10))
+        labels=[r"$\zeta^0_{c1}$", r"$\zeta^0_{s1}$", r"$u^0_{c1}$", r"$u^0_{s1}$", r"$\zeta^1_{r}$", r"$\zeta^1_{c2}$", r"$\zeta^1_{s2}$", r"$u^1_{r}$", r"$u^1_{c2}$", r"$u^1_{s2}$", r"$h$", r"$h_x$"]
+        for i in range(4):
+            axs[0, i].set_title(labels[i])
+            axs[0, i].plot(self.y.x, self.y.y[i])
+        for i in range(6):
+            axs[1, i].set_title(labels[4 + i])
+            axs[1, i].plot(self.y.x, self.y.y[4 + i], 'k')
+        for i in range(2):
+            axs[0, 4+i].set_title(labels[10 + i])
+            axs[0, 4+i].plot(self.y.x, self.y.y[10 + i], 'brown')
+        plt.show()
+        
 
 if __name__ == "__main__":
     pcswe = PCSWE_mb()
