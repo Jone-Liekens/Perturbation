@@ -26,12 +26,15 @@ class PCSWE_wall():
         self.c_d = 0.0025
         self.lmbda = 6.8e-6
         self.d50 = 0.13e-3
+        self.phi = pi / 6 # 30 degrees 
 
         # universal constants
         self.g = 9.81
         self.sigma = 1.4e-4
         self.rho_w = 1025
         self.rho_s = 2650
+        
+        self.use_alpha = False
         
     def set_derivative_vars(self):
         self.epsilon = self.A / self.H
@@ -44,6 +47,14 @@ class PCSWE_wall():
         self.delta = 0.04 * self.c_d**(3/2) * self.A * (self.sigma * self.L)**4 / \
                     (self.g**2 * (self.s-1)**2 * self.d50 * self.H**6 * (1-self.p))
 
+        self.f = 0.04 * self.c_d**(3/2) / (self.g**2 * (self.s-1)**2 * self.d50)
+        
+        self.bA_ = self.f * self.U**5 / self.L / 2 / pi
+        self.bA  = self.f * self.U**5 / self.L / 2 / pi / self.sigma / self.H / (1-self.p)
+
+        self.bB_ = (1-self.p) * self.lmbda * self.H / self.L**2
+        self.bB  = (1-self.p) * self.lmbda * self.H / self.L**2 / self.sigma/ self.H / (1-self.p)
+
     def generate_solution(self):
         # assume we have ran self.solve()
         t = linspace(0, 2*pi, 1000)
@@ -51,7 +62,6 @@ class PCSWE_wall():
 
         # x_mesh = x[:, np.newaxis] * ones(t.shape)[np.newaxis, :]
         # t_mesh = np.tile(t, (len(x), 1))
-
 
         dz0_xt = self.y.y[0][:, np.newaxis] * cos(t)[np.newaxis, :] + \
             self.y.y[1][:, np.newaxis] * sin(t)[np.newaxis, :]
@@ -137,10 +147,35 @@ class PCSWE_wall():
         y1_x_dx = self.deriv_FO(x_x, y1_x, y0_x, y0_x_dx)
         dz1r_x_dx, dz1c_x_dx, dz1s_x_dx, u1r_x_dx, u1c_x_dx, u1s_x_dx = y1_x_dx
 
-        factor = 0.04 * self.c_d**(3/2) / (self.g * (self.s-1))**2 / self.d50 
-        U5 = (self.A * self.sigma * self.L / self.H)**5
-        q_x_dx = U5 * factor / 2 / pi / self.L * self.epsilon*(5*pi*u0c_x**4*u1c_x_dx/2 + 15*pi*u0c_x**4*u1r_x_dx/4 + 5*pi*u0c_x**3*u0s_x*u1s_x_dx + 10*pi*u0c_x**3*u1c_x*u0c_x_dx + 15*pi*u0c_x**3*u1r_x*u0c_x_dx + 5*pi*u0c_x**3*u1s_x*u0s_x_dx + 15*pi*u0c_x**2*u0s_x**2*u1r_x_dx/2 + 15*pi*u0c_x**2*u0s_x*u1r_x*u0s_x_dx + 15*pi*u0c_x**2*u0s_x*u1s_x*u0c_x_dx + 5*pi*u0c_x*u0s_x**3*u1s_x_dx + 15*pi*u0c_x*u0s_x**2*u1r_x*u0c_x_dx + 15*pi*u0c_x*u0s_x**2*u1s_x*u0s_x_dx - 5*pi*u0s_x**4*u1c_x_dx/2 + 15*pi*u0s_x**4*u1r_x_dx/4 - 10*pi*u0s_x**3*u1c_x*u0s_x_dx + 15*pi*u0s_x**3*u1r_x*u0s_x_dx + 5*pi*u0s_x**3*u1s_x*u0c_x_dx)
-        h_x_dxx = q_x_dx / self.lmbda * self.L**2 / self.H / (1-self.p)
+        if not self.use_alpha:
+            u5_x_dx = self.epsilon*(5*pi*u0c_x**4*u1c_x_dx/2 + 15*pi*u0c_x**4*u1r_x_dx/4 + 5*pi*u0c_x**3*u0s_x*u1s_x_dx + 10*pi*u0c_x**3*u1c_x*u0c_x_dx + 15*pi*u0c_x**3*u1r_x*u0c_x_dx + 5*pi*u0c_x**3*u1s_x*u0s_x_dx + 15*pi*u0c_x**2*u0s_x**2*u1r_x_dx/2 + 15*pi*u0c_x**2*u0s_x*u1r_x*u0s_x_dx + 15*pi*u0c_x**2*u0s_x*u1s_x*u0c_x_dx + 5*pi*u0c_x*u0s_x**3*u1s_x_dx + 15*pi*u0c_x*u0s_x**2*u1r_x*u0c_x_dx + 15*pi*u0c_x*u0s_x**2*u1s_x*u0s_x_dx - 5*pi*u0s_x**4*u1c_x_dx/2 + 15*pi*u0s_x**4*u1r_x_dx/4 - 10*pi*u0s_x**3*u1c_x*u0s_x_dx + 15*pi*u0s_x**3*u1r_x*u0s_x_dx + 5*pi*u0s_x**3*u1s_x*u0c_x_dx)
+        elif self.use_alpha:
+            
+
+            t = np.linspace(0, 2*pi, 300)
+            u0_xt = u0c_x[:,None] * cos(  t)[None,:] + u0s_x[:,None] * sin(  t)[None,:]
+            u1_xt = u1c_x[:,None] * cos(2*t)[None,:] + u1s_x[:,None] * sin(2*t)[None,:] + u1r_x[:,None] * ones(t.shape)[None,:]
+            u_xt = u0_xt + self.epsilon * u1_xt
+  
+            c2 = cos(atan(self.H/self.L * h_x_dx)) # ~ 1
+            alpha_xt = tan(self.phi) / (c2[:, None] * (tan(self.phi) + self.H / self.L * h_x_dx[:, None] * np.sign(u_xt)))
+     
+            y = alpha_xt * u_xt**5
+
+            # with alpha
+            # u_x_trap = np.trapezoid(y, x=t) # sol.t goes from 0 to 2 pi
+            u_x_simp = scipy.integrate.simpson(y, x=t)
+
+            # without alpha
+            # u5_x = self.epsilon*(5*pi*u0c_x**4*u1c_x/2 + 15*pi*u0c_x**4*u1r_x/4 + 5*pi*u0c_x**3*u0s_x*u1s_x + 15*pi*u0c_x**2*u0s_x**2*u1r_x/2 + 5*pi*u0c_x*u0s_x**3*u1s_x - 5*pi*u0s_x**4*u1c_x/2 + 15*pi*u0s_x**4*u1r_x/4)
+            # u5_x_simp = scipy.integrate.simpson(y, x=t)
+            
+
+            u5_x_dx = np.gradient(u_x_simp, x_x, edge_order=2)
+
+        qe_x_dx = self.bA *u5_x_dx 
+        h_x_dxx = qe_x_dx / self.bB
+
 
         return np.array([dz0c_x_dx, dz0s_x_dx, u0c_x_dx, u0s_x_dx, dz1r_x_dx, dz1c_x_dx, dz1s_x_dx, u1r_x_dx, u1c_x_dx, u1s_x_dx, h_x_dx, h_x_dxx])
     
@@ -275,59 +310,267 @@ class PCSWE_wall():
             axs[0, 4+i].plot(self.y.x, self.y.y[10 + i], 'brown')
         plt.show()
 
+    def transport_alpha(self):
+        sol = self.generate_solution()
+        x_x = sol.x # same as self.y.x (luckily!)
+        u_xt = sol.u_xt
+        try:
+            # if solve has been run
+            y0_x, y1_x = np.split(self.y.y, [4], axis=0)
+            dz0c_x, dz0s_x, u0c_x, u0s_x, dz1r_x, dz1c_x, dz1s_x, u1r_x, u1c_x, u1s_x = self.y.y
+            h_x, h_x_dx = self.h_fx(x_x), self.h_fx_dx(x_x)
+        except:
+            # if solve_h has been run
+            y0_x, y1_x, yh_x = np.split(self.y.y, [4, 10], axis=0)
+            dz0c_x, dz0s_x, u0c_x, u0s_x, dz1r_x, dz1c_x, dz1s_x, u1r_x, u1c_x, u1s_x, h_x, h_x_dx = self.y.y
+        y0_x_dx = self.deriv_LO(x_x, y0_x)
+        dz0c_x_dx, dz0s_x_dx, u0c_x_dx, u0s_x_dx = y0_x_dx
+        y1_x_dx = self.deriv_FO(x_x, y1_x, y0_x, y0_x_dx)
+        dz1r_x_dx, dz1c_x_dx, dz1s_x_dx, u1r_x_dx, u1c_x_dx, u1s_x_dx = y1_x_dx
+
+
+
+        c1 = tan(self.phi)
+        c2 = cos(atan(self.H/self.L * h_x_dx)) # ~ 1
+        c3 = self.H / self.L * h_x_dx # very small
+        k2 = c2 * c1 
+        k3 = c2 * c3 # very small
+        alpha_xt = alpha = c1 / (k2 + k3 * np.sign(u_xt))
+
+        y = alpha_xt * u_xt**5
+
+        # with alpha
+        u_x_trap = np.trapezoid(y, x=sol.t) # sol.t goes from 0 to 2 pi
+        u_x_simp = scipy.integrate.simpson(y, x=sol.t)
+
+        # without alpha
+        u5_x = self.epsilon*(5*pi*u0c_x**4*u1c_x/2 + 15*pi*u0c_x**4*u1r_x/4 + 5*pi*u0c_x**3*u0s_x*u1s_x + 15*pi*u0c_x**2*u0s_x**2*u1r_x/2 + 5*pi*u0c_x*u0s_x**3*u1s_x - 5*pi*u0s_x**4*u1c_x/2 + 15*pi*u0s_x**4*u1r_x/4)
+        u5_x_simp = scipy.integrate.simpson(y, x=sol.t)
+        plt.plot(x_x, u_x_trap, 'o')
+        plt.plot(x_x, u_x_simp)
+        plt.plot(x_x, u5_x)
+        plt.show()
+
+        plt.plot(x_x, np.gradient(u_x_simp, x_x, edge_order=2), 'o')
+        plt.plot(x_x, np.gradient(u5_x, x_x, edge_order=2))
+        plt.plot(x_x, np.gradient(u5_x_simp, x_x, edge_order=2))
+        plt.show()
 
 
 
 
-"""
+
+
+
+
+
+
+        raise SystemError
+
+        # alternative calculation: find all zeros 
+        print(x_x.shape)
+        print(sol.t.shape)
+
+
+
+
+
+
+
+
+
+        # X, T = np.meshgrid(x_x, sol.t)
+        T, X = np.meshgrid(sol.t, x_x)
+
+
+
+
+
+
+
+
+
+        print(X.shape)
+        print(u_xt.shape)
+
+        # Suppose X, Y are 2D meshgrids and F is f(X,Y)
+        plt.figure()
+        cs = plt.contour(X, T, u_xt, levels=[0], colors='k')  # level-set f=0
+        plt.show()
+
+
+        zero_curves = cs.allsegs
+        print(zero_curves[0])
+        for item in zero_curves[0]:
+            print(item.shape)
+    
+            plt.plot(item[:, 0], item[:, 1])
+            plt.show()
+
+
+        sign_change = u_xt[:, :-1] * u_xt[:, 1:] < 0    # shape (nx, ny-1)
+
+
+        rows, cols = np.where(sign_change)
+
+        print(rows.shape, cols.shape)
+        print(rows)
+
+        result = np.zeros(len(x_x))
+
+
+
+
+        sign_change = u_xt[:, :-1] * u_xt[:, 1:] < 0   # (nx, ny-1)
+        x = np.asarray(sign_change).nonzero()
+        print(x)
+
+
+    
+        results = zeros((len(x_x), 2))       # output array
+        for i in range(len(x_x)):
+            
+
+
+            cols = np.where(sign_change[i])[0]   # indices j where crossing between y[j] and y[j+1]
+            
+            if len(cols) == 0:
+                continue
+            
+            # Interpolate crossings (vectorized for this row)
+            j = cols
+            y0, y1 = y[j], y[j+1]
+            f0, f1 = u_xt[i, j], u_xt[i,j+1]
+            y_cross = y0 - f0 * (y1 - y0) / (f1 - f0)
+            
+            # Keep only the first 2 crossings
+            results[i, :min(2, len(y_cross))] = y_cross[:2]
+
+
+        # print(zero_curves.shape)
+        # print(zero_curves)
+
+        # for path in zero_curves:
+            
+        #     curve = path.vertices      # Nx2 array of (x, y) points along the zero line
+        #     print(curve)
+        #     # do something with curve
+
+
+
+
+
+
+        
+
+
+    def transport2(self):
+        
+        sol = self.generate_solution()
+        x_x = sol.x # same as self.y.x (luckily!)
+        u_xt = sol.u_xt
+
+        try:
+            # if solve has been run
+            y0_x, y1_x = np.split(self.y.y, [4], axis=0)
+            dz0c_x, dz0s_x, u0c_x, u0s_x, dz1r_x, dz1c_x, dz1s_x, u1r_x, u1c_x, u1s_x = self.y.y
+            h_x, h_x_dx = self.h_fx(x_x), self.h_fx_dx(x_x)
+        except:
+            # if solve_h has been run
+            y0_x, y1_x, yh_x = np.split(self.y.y, [4, 10], axis=0)
+            dz0c_x, dz0s_x, u0c_x, u0s_x, dz1r_x, dz1c_x, dz1s_x, u1r_x, u1c_x, u1s_x, h_x, h_x_dx = self.y.y
+
+        y0_x_dx = self.deriv_LO(x_x, y0_x)
+        dz0c_x_dx, dz0s_x_dx, u0c_x_dx, u0s_x_dx = y0_x_dx
+        y1_x_dx = self.deriv_FO(x_x, y1_x, y0_x, y0_x_dx)
+        dz1r_x_dx, dz1c_x_dx, dz1s_x_dx, u1r_x_dx, u1c_x_dx, u1s_x_dx = y1_x_dx
+
+
+        u5_x_dx = 5*pi*self.epsilon*(2*u0c_x**4*u1c_x_dx + 3*u0c_x**4*u1r_x_dx + 4*u0c_x**3*u0s_x*u1s_x_dx + 8*u0c_x**3*u1c_x*u0c_x_dx + 12*u0c_x**3*u1r_x*u0c_x_dx + 4*u0c_x**3*u1s_x*u0s_x_dx + 6*u0c_x**2*u0s_x**2*u1r_x_dx + 12*u0c_x**2*u0s_x*u1r_x*u0s_x_dx + 12*u0c_x**2*u0s_x*u1s_x*u0c_x_dx + 4*u0c_x*u0s_x**3*u1s_x_dx + 12*u0c_x*u0s_x**2*u1r_x*u0c_x_dx + 12*u0c_x*u0s_x**2*u1s_x*u0s_x_dx - 2*u0s_x**4*u1c_x_dx + 3*u0s_x**4*u1r_x_dx - 8*u0s_x**3*u1c_x*u0s_x_dx + 12*u0s_x**3*u1r_x*u0s_x_dx + 4*u0s_x**3*u1s_x*u0c_x_dx)/4
+        
+        q_x_dx = self.bA_ * u5_x_dx
+        
+        fig, axs = plt.subplots(4, 5, figsize=(25, 20))
+        axs[0, 0].plot(x_x, self.h_fx(x_x), 'brown', linewidth=4)
+        axs[0, 0].set_title(r"$h(x)$")
+
+        axs[0, 1].plot(x_x, u5_x_dx)
+        axs[0, 1].set_title(r"$\int u^5$")
+
+        axs[1, 4].set_title(r"$(\int q_T)_x$")
+        axs[1, 4].plot(x_x, q_x_dx)
+        plt.show()
+
+
+
+           
+
+
+        # axs[1, 2].plot(x_x, np.max(q_xt, axis=1))
+        # axs[1, 2].set_title("max($q_T$)")
+        # axs[1, 3].plot(x_x, q_x_trap, 'o', label="trapz rule")
+        # # axs[0, 1].plot(x, q_x_gl, 'x', ms=5)
+        # axs[1, 3].plot(x_x, q_x, 'k', label="analytical")
+        # axs[1, 3].set_title(r"$\int q_T$")
+        # axs[1, 4].plot(x_x, q_x_dx)
+        # axs[1, 4].set_title(r"$(\int q_T)_x$")
+        # axs[2, 4].plot(x_x, b_x)
+        # axs[2, 4].set_title(r"$\int (1-p)\lambda h_x$")
+        # axs[2, 0].plot(x_x, h_x_dt, color='brown', linestyle='--')
+        # axs[2, 0].set_title(r"$h_t$")
+        # axs[2, 2].plot(x, b_x_dx)
+        # axs[2, 2].set_title(r"$(\int (1-p)\lambda h_x)_x$")
+        # plt.show()
+
+
+    
+        return
+
+
     def transport(self):
         # assume solve has already been executed, and we have all 10 components (4 LO 6 FO) calculated
         # compute local transport
 
         sol = self.generate_solution()
-        x = sol.x 
+        x_x = sol.x # same as self.y.x (luckily!)
         u_xt = sol.u_xt
 
         try:
             # if solve has been run
-            dz0_c, dz0_s, u0_c, u0_s, dz1_r, dz1_c, dz1_s, u1_r, u1_c, u1_s = self.y.y
-            h_x = self.h_fx(x)
-            h_x_dx = self.h_fx_dx(x)
+            y0_x, y1_x = np.split(self.y.y, [4], axis=0)
+            dz0c_x, dz0s_x, u0c_x, u0s_x, dz1r_x, dz1c_x, dz1s_x, u1r_x, u1c_x, u1s_x = self.y.y
+            h_x, h_x_dx = self.h_fx(x_x), self.h_fx_dx(x_x)
         except:
-            # if solve with h has been run
-            dz0_c, dz0_s, u0_c, u0_s, dz1_r, dz1_c, dz1_s, u1_r, u1_c, u1_s, h, h_x = self.y.y
-            h_x = h(x)
-            h_x_dx = h_x(x)
+            # if solve_h has been run
+            y0_x, y1_x, yh_x = np.split(self.y.y, [4, 10], axis=0)
+            dz0c_x, dz0s_x, u0c_x, u0s_x, dz1r_x, dz1c_x, dz1s_x, u1r_x, u1c_x, u1s_x, h_x, h_x_dx = self.y.y
 
+        y0_x_dx = self.deriv_LO(x_x, y0_x)
+        dz0c_x_dx, dz0s_x_dx, u0c_x_dx, u0s_x_dx = y0_x_dx
+        y1_x_dx = self.deriv_FO(x_x, y1_x, y0_x, y0_x_dx)
+        dz1r_x_dx, dz1c_x_dx, dz1s_x_dx, u1r_x_dx, u1c_x_dx, u1s_x_dx = y1_x_dx
 
-        d_dz0_c = 1 / self.kappa * ( - self.r / (1 - h_x + self.h0) * u0_c - u0_s)
-        d_dz0_s = 1 / self.kappa * ( - self.r / (1 - h_x + self.h0) * u0_s + u0_c)
-
-        d_u0_c = (-dz0_s + u0_c * h_x_dx)  / (1 - h_x + self.small_number)
-        d_u0_s = ( dz0_c + u0_s * h_x_dx)  / (1 - h_x + self.small_number) 
-
-        d_u1_r = 1 / (1 - h_x + self.small_number) * (h_x_dx * u1_r             - 1 / 2 * (dz0_c * d_u0_c + d_dz0_c * u0_c + dz0_s * d_u0_s + d_dz0_s * u0_s))
-        d_u1_c = 1 / (1 - h_x + self.small_number) * (h_x_dx * u1_c - 2 * dz1_s - 1 / 2 * (dz0_c * d_u0_c + d_dz0_c * u0_c - dz0_s * d_u0_s - d_dz0_s * u0_s))
-        d_u1_s = 1 / (1 - h_x + self.small_number) * (h_x_dx * u1_s + 2 * dz1_c - 1 / 2 * (dz0_s * d_u0_c + d_dz0_s * u0_c + dz0_c * d_u0_s + d_dz0_c * u0_s))
-
+    
 
         # Engelund Hansen formula
         factor = 0.04 * self.c_d**(3/2) / (self.g * (self.s-1))**2 / self.d50 
         U5 = (self.A * self.sigma * self.L / self.H)**5
 
-        print(factor)
-        print(U5)
-
         # just u^5 dimensionless
         u5_xt = u_xt**5
+
         # instantaneous transport
         q_xt = factor * U5 * u_xt**5
 
+
+        
         # time integration of instantaneous transport
         # -------------------------------------------
-        u5_x = self.epsilon*((5*pi*d_u1_c/2 + 15*pi*d_u1_r/4)*u0_c**4 + (5*pi*u0_s*d_u1_s + 5*pi*u1_s*d_u0_s)*u0_c**3 + (15*pi*u0_s**2*d_u1_r/2 + 15*pi*u0_s*u1_r*d_u0_s)*u0_c**2 + (5*pi*u0_s**3*d_u1_s + 15*pi*u0_s**2*u1_r*d_u0_c + 15*pi*u0_s**2*u1_s*d_u0_s)*u0_c + (10*pi*u0_c**3*u1_c + 15*pi*u0_c**3*u1_r + 15*pi*u0_c**2*u0_s*u1_s + 5*pi*u0_s**3*u1_s)*d_u0_c - 5*pi*u0_s**4*d_u1_c/2 + 15*pi*u0_s**4*d_u1_r/4 - 10*pi*u0_s**3*u1_c*d_u0_s + 15*pi*u0_s**3*u1_r*d_u0_s)
+        u5_x = self.epsilon*(5*pi*u0c_x**4*u1c_x/2 + 15*pi*u0c_x**4*u1r_x/4 + 5*pi*u0c_x**3*u0s_x*u1s_x + 15*pi*u0c_x**2*u0s_x**2*u1r_x/2 + 5*pi*u0c_x*u0s_x**3*u1s_x - 5*pi*u0s_x**4*u1c_x/2 + 15*pi*u0s_x**4*u1r_x/4)
+
         # analytically
-        q_x = U5 * factor / 2 / pi * self.epsilon*((5*pi*u1_c/2 + 15*pi*u1_r/4)*u0_c**4 + 5*pi*u0_c**3*u0_s*u1_s + 15*pi*u0_c**2*u0_s**2*u1_r/2 + 5*pi*u0_c*u0_s**3*u1_s - 5*pi*u0_s**4*u1_c/2 + 15*pi*u0_s**4*u1_r/4)
+        q_x = U5 * factor / 2 / pi * u5_x
+        
         # trapezoidal rule
         q_x_trap = np.mean(q_xt, 1)
         # # Gauss_Legendre
@@ -338,28 +581,19 @@ class PCSWE_wall():
 
         # spatial derivative of time integration of instantaneous transport
         # -----------------------------------------------------------------
+        u5_x_dx = 5*pi*self.epsilon*(2*u0c_x**4*u1c_x_dx + 3*u0c_x**4*u1r_x_dx + 4*u0c_x**3*u0s_x*u1s_x_dx + 8*u0c_x**3*u1c_x*u0c_x_dx + 12*u0c_x**3*u1r_x*u0c_x_dx + 4*u0c_x**3*u1s_x*u0s_x_dx + 6*u0c_x**2*u0s_x**2*u1r_x_dx + 12*u0c_x**2*u0s_x*u1r_x*u0s_x_dx + 12*u0c_x**2*u0s_x*u1s_x*u0c_x_dx + 4*u0c_x*u0s_x**3*u1s_x_dx + 12*u0c_x*u0s_x**2*u1r_x*u0c_x_dx + 12*u0c_x*u0s_x**2*u1s_x*u0s_x_dx - 2*u0s_x**4*u1c_x_dx + 3*u0s_x**4*u1r_x_dx - 8*u0s_x**3*u1c_x*u0s_x_dx + 12*u0s_x**3*u1r_x*u0s_x_dx + 4*u0s_x**3*u1s_x*u0c_x_dx)/4
+        q_x_dx = U5 * factor / 2 / pi / self.L * u5_x_dx
+        q_x_dx_num = np.gradient(q_x, x_x) / self.L
 
-        print(U5 * factor / 2 / pi / self.L * self.epsilon)
-        
-        u5_x_dx = self.epsilon*((5*pi*d_u1_c/2 + 15*pi*d_u1_r/4)*u0_c**4 + (5*pi*u0_s*d_u1_s + 5*pi*u1_s*d_u0_s)*u0_c**3 + (15*pi*u0_s**2*d_u1_r/2 + 15*pi*u0_s*u1_r*d_u0_s)*u0_c**2 + (5*pi*u0_s**3*d_u1_s + 15*pi*u0_s**2*u1_r*d_u0_c + 15*pi*u0_s**2*u1_s*d_u0_s)*u0_c + (10*pi*u0_c**3*u1_c + 15*pi*u0_c**3*u1_r + 15*pi*u0_c**2*u0_s*u1_s + 5*pi*u0_s**3*u1_s)*d_u0_c - 5*pi*u0_s**4*d_u1_c/2 + 15*pi*u0_s**4*d_u1_r/4 - 10*pi*u0_s**3*u1_c*d_u0_s + 15*pi*u0_s**3*u1_r*d_u0_s)
-        q_x_dx = U5 * factor / 2 / pi / self.L * self.epsilon*((5*pi*d_u1_c/2 + 15*pi*d_u1_r/4)*u0_c**4 + (5*pi*u0_s*d_u1_s + 5*pi*u1_s*d_u0_s)*u0_c**3 + (15*pi*u0_s**2*d_u1_r/2 + 15*pi*u0_s*u1_r*d_u0_s)*u0_c**2 + (5*pi*u0_s**3*d_u1_s + 15*pi*u0_s**2*u1_r*d_u0_c + 15*pi*u0_s**2*u1_s*d_u0_s)*u0_c + (10*pi*u0_c**3*u1_c + 15*pi*u0_c**3*u1_r + 15*pi*u0_c**2*u0_s*u1_s + 5*pi*u0_s**3*u1_s)*d_u0_c - 5*pi*u0_s**4*d_u1_c/2 + 15*pi*u0_s**4*d_u1_r/4 - 10*pi*u0_s**3*u1_c*d_u0_s + 15*pi*u0_s**3*u1_r*d_u0_s)
-        q_x_dx_num = np.gradient(q_x, x) / self.L
-        u5_x = self.epsilon*((5*pi*u1_c/2 + 15*pi*u1_r/4)*u0_c**4 + 5*pi*u0_c**3*u0_s*u1_s + 15*pi*u0_c**2*u0_s**2*u1_r/2 + 5*pi*u0_c*u0_s**3*u1_s - 5*pi*u0_s**4*u1_c/2 + 15*pi*u0_s**4*u1_r/4)
-        
-        # plt.plot(x, u5_x_dx)
-        # plt.show()
-        # plt.plot(x, u5_x)
-        # plt.show()
-        
 
         # bedload transport
         # -----------------
-        b_x = (1 - self.p) * self.lmbda * self.H / self.L * h_x_dx * np.ones(x.shape)
+        b_x = (1 - self.p) * self.lmbda * self.H / self.L * h_x_dx * np.ones(x_x.shape)
 
         # spatial derivative of bedload transport?
         # cannot compute this analytically without d^2h/dx^2  
         # numerical approx:
-        b_x_dx = np.gradient(b_x, x) / self.L
+        b_x_dx = np.gradient(b_x, x_x) / self.L
 
 
         # effect on the time derivative of the bed
@@ -367,64 +601,61 @@ class PCSWE_wall():
         print(self.H / self.sigma / (1-self.p))
         h_x_dt = (-q_x_dx + b_x_dx) / self.H / self.sigma / (1 - self.p) # (dimensionless)
 
-        return x, u5_xt, q_xt, q_x, q_x_trap, q_x_dx, q_x_dx_num, b_x, b_x_dx, h_x_dt
+        return x_x, u5_xt, u5_x, u5_x_dx, q_xt, q_x, q_x_trap, q_x_dx, q_x_dx_num, b_x, b_x_dx, h_x_dt
 
-    def dh_dx(self):
-                # assume solve has already been executed, and we have all 10 components (4 LO 6 FO) calculated
-        # compute local transport
+    def visualize_transport(self):
+        x, u5_xt, u5_x, u5_x_dx, q_xt, q_x, q_x_trap, q_x_dx, q_x_dx_num, b_x, b_x_dx, h_x_dt = self.transport()
 
-        sol = self.generate_solution()
-        x = sol.x 
-        u_xt = sol.u_xt
-
-        try:
-            # if solve has been run
-            dz0_c, dz0_s, u0_c, u0_s, dz1_r, dz1_c, dz1_s, u1_r, u1_c, u1_s = self.y.y
-            h_x = self.h_fx(x)
-            h_x_dx = self.h_fx_dx(x)
-        except:
-            # if solve with h has been run
-            dz0_c, dz0_s, u0_c, u0_s, dz1_r, dz1_c, dz1_s, u1_r, u1_c, u1_s, h, h_x = self.y.y
-            h_x = h(x)
-            h_x_dx = h_x(x)
+        fig, axs = plt.subplots(4, 5, figsize=(25, 20))
+        axs[0, 0].plot(x, self.h_fx(x), 'brown', linewidth=4)
+        axs[0, 0].set_title(r"$h(x)$")
 
 
-        d_dz0_c = 1 / self.kappa * ( - self.r / (1 - h_x + self.h0) * u0_c - u0_s)
-        d_dz0_s = 1 / self.kappa * ( - self.r / (1 - h_x + self.h0) * u0_s + u0_c)
-
-        d_u0_c = (-dz0_s + u0_c * h_x_dx)  / (1 - h_x + self.small_number)
-        d_u0_s = ( dz0_c + u0_s * h_x_dx)  / (1 - h_x + self.small_number) 
-
-        d_u1_r = 1 / (1 - h_x + self.small_number) * (h_x_dx * u1_r             - 1 / 2 * (dz0_c * d_u0_c + d_dz0_c * u0_c + dz0_s * d_u0_s + d_dz0_s * u0_s))
-        d_u1_c = 1 / (1 - h_x + self.small_number) * (h_x_dx * u1_c - 2 * dz1_s - 1 / 2 * (dz0_c * d_u0_c + d_dz0_c * u0_c - dz0_s * d_u0_s - d_dz0_s * u0_s))
-        d_u1_s = 1 / (1 - h_x + self.small_number) * (h_x_dx * u1_s + 2 * dz1_c - 1 / 2 * (dz0_s * d_u0_c + d_dz0_s * u0_c + dz0_c * d_u0_s + d_dz0_c * u0_s))
+        axs[0, 1].plot(x, u5_x_dx)
+        axs[0, 1].set_title(r"$\int u^5$")
 
 
 
-        # Engelund Hansen formula
-        factor = 0.04 * self.c_d**(3/2) / (self.g * (self.s-1))**2 / self.d50 * (self.A * self.sigma * self.L / self.H)**5
+        axs[1, 0].plot(x, np.max(u5_xt, axis=1))
+        axs[1, 0].set_title("max($u^5$)")
+
+        axs[1, 1].plot(x, u5_x)
+        axs[1, 1].set_title(r"$\int u^5$")
+
+        axs[1, 2].plot(x, np.max(q_xt, axis=1))
+        axs[1, 2].set_title("max($q_T$)")
 
 
-        # spatial derivative of time integration of instantaneous transport
-        # -----------------------------------------------------------------
-        q_x_dx =  factor / self.sigma / self.L * self.epsilon*((5*pi*d_u1_c/2 + 15*pi*d_u1_r/4)*u0_c**4 + (5*pi*u0_s*d_u1_s + 5*pi*u1_s*d_u0_s)*u0_c**3 + (15*pi*u0_s**2*d_u1_r/2 + 15*pi*u0_s*u1_r*d_u0_s)*u0_c**2 + (5*pi*u0_s**3*d_u1_s + 15*pi*u0_s**2*u1_r*d_u0_c + 15*pi*u0_s**2*u1_s*d_u0_s)*u0_c + (10*pi*u0_c**3*u1_c + 15*pi*u0_c**3*u1_r + 15*pi*u0_c**2*u0_s*u1_s + 5*pi*u0_s**3*u1_s)*d_u0_c - 5*pi*u0_s**4*d_u1_c/2 + 15*pi*u0_s**4*d_u1_r/4 - 10*pi*u0_s**3*u1_c*d_u0_s + 15*pi*u0_s**3*u1_r*d_u0_s)
-         
-
-        # bedload transport
-        # -----------------
-        b_x = (1 - self.p) * self.lmbda / self.L * self.H * h_x_dx * np.ones(x.shape)
-
-        # spatial derivative of bedload transport?
-        # cannot compute this analytically without d^2h/dx^2  
-        # numerical approx:
-        b_x_dx = np.gradient(b_x, x) / self.L  
 
 
-        # effect on the time derivative of the bed
-        h_x_dt = (-q_x_dx + b_x_dx) * self.sigma / self.H # (dimensionless)
 
-        return h_x_dt
+        axs[1, 3].plot(x, q_x_trap, 'o', label="trapz rule")
+        # axs[0, 1].plot(x, q_x_gl, 'x', ms=5)
+        axs[1, 3].plot(x, q_x, 'k', label="analytical")
+        axs[1, 3].set_title(r"$\int q_T$")
 
+        axs[1, 4].plot(x, q_x_dx)
+        axs[1, 4].set_title(r"$(\int q_T)_x$")
+
+
+
+        axs[2, 4].plot(x, b_x)
+        axs[2, 4].set_title(r"$\int (1-p)\lambda h_x$")
+
+
+        axs[2, 0].plot(x, h_x_dt, color='brown', linestyle='--')
+        axs[2, 0].set_title(r"$h_t$")
+
+
+        
+
+        axs[2, 2].plot(x, b_x_dx)
+        axs[2, 2].set_title(r"$(\int (1-p)\lambda h_x)_x$")
+        plt.show()
+
+        return
+  
+"""
     def transport_step(self, timestep=1e-3):
 
         def cheby_approx(x, y):
@@ -460,24 +691,6 @@ class PCSWE_wall():
         self.h_fx_dx = h_fx_dx
 
         return
-    
-    def visualize_transport(self):
-        x, u5_xt, q_xt, q_x, q_x_trap, q_x_dx, q_x_dx_num, b_x, b_x_dx, h_x_dt = self.transport()
-
-        fig, axs = plt.subplots(2, 3, figsize=(9, 6))
-        axs[0, 0].plot(x, self.h_fx(x), 'brown', linewidth=4)
-        axs[0, 1].plot(x, q_x_trap, 'o')
-        # axs[0, 1].plot(x, q_x_gl, 'x', ms=5)
-        axs[0, 1].plot(x, q_x, 'k')
-        axs[0, 2].plot(x, b_x)
-
-        axs[1, 0].plot(x, h_x_dt, color='brown', linestyle='--')
-        axs[1, 1].plot(x, q_x_dx)
-        axs[1, 2].plot(x, b_x_dx)
-        plt.show()
-
-        return
-  
 """
 
 

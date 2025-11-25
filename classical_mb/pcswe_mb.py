@@ -86,8 +86,8 @@ class PCSWE_mb():
 
         dz0c_x_dxx = 1 / self.kappa * (- self.r / (1 - h_x + self.h0)**2 * h_x_dx * u0c_x - self.r / (1 - h_x + self.h0) * u0c_x_dx - u0s_x_dx)
         dz0s_x_dxx = 1 / self.kappa * (- self.r / (1 - h_x + self.h0)**2 * h_x_dx * u0s_x - self.r / (1 - h_x + self.h0) * u0s_x_dx + u0c_x_dx)
-        u0c_x_dxx = 1/3 * (- h_x_dxx / h_x_dx**2 * ( dz0s_x_dx - u0c_x * h_x_dxx) + 1 / h_x_dx * ( dz0s_x_dxx - u0c_x_dx * h_x_dxx - u0c_x * h_x_dxxx))
-        u0s_x_dxx = 1/3 * (- h_x_dxx / h_x_dx**2 * (-dz0c_x_dx - u0s_x * h_x_dxx) + 1 / h_x_dx * (-dz0c_x_dxx - u0s_x_dx * h_x_dxx - u0s_x * h_x_dxxx))
+        u0c_x_dxx = 1/3 * (- h_x_dxx / h_x_dx**2 * ( dz0s_x_dx - u0c_x * h_x_dxx - u0c_x_dx * h_x_dx) + 1 / h_x_dx * ( dz0s_x_dxx - u0c_x_dx * h_x_dxx - u0c_x * h_x_dxxx))
+        u0s_x_dxx = 1/3 * (- h_x_dxx / h_x_dx**2 * (-dz0c_x_dx - u0s_x * h_x_dxx - u0s_x_dx * h_x_dx) + 1 / h_x_dx * (-dz0c_x_dxx - u0s_x_dx * h_x_dxx - u0s_x * h_x_dxxx))
         
         return np.array([dz0c_x_dxx, dz0s_x_dxx, u0c_x_dxx, u0s_x_dxx])
 
@@ -260,36 +260,40 @@ class PCSWE_mb():
         y_x_dx_hop = np.array([self.deriv(x_, y_) for x_, y_ in zip(x, y.T)]).T
         self.bnd_FO_hop = bnd_FO_hop
 
-
+        linestyle = '-'
 
         for i in range(4):
             axs[0, i].set_title(labels[i])
-            axs[0, i].plot(x, y[i],'o-')
+            axs[0, i].plot(x, y[i], linestyle)
         for i in range(4):
-            axs[1, i].plot(x, y_x_dx[i], 'o-')
-            axs[1, i].plot(x, np.gradient(y[i], x, edge_order=2),'o-')
-            axs[1, i].plot(x[1:], np.diff(y[i]) / np.diff(x),'o-')
+            axs[1, i].plot(x, y_x_dx[i], linestyle)
+            axs[1, i].plot(x, np.gradient(y[i], x, edge_order=2), linestyle)
+            axs[1, i].plot(x[1:], np.diff(y[i]) / np.diff(x), linestyle)
             axs[1, i].legend(["analytical", "np.gradient (2nd order)", "np.diff (1st order)"])
         for i in range(4):
             axs[2, i].set_title(labels[i])
-            axs[2, i].plot(x, y0_x_dxx[i],'o-')
-            axs[2, i].plot(x, np.gradient(np.gradient(y[i], x, edge_order=2), x, edge_order=2),'o-')
+            axs[2, i].plot(x, y0_x_dxx[i], linestyle)
+            axs[2, i].plot(x, np.gradient(np.gradient(y[i], x, edge_order=2), x, edge_order=2), linestyle)
             axs[2, i].legend(["analytical (only accurate at x = 1)", "np.gradient (2nd order)"])
 
         for i in range(6):
             axs[3, i].set_title(labels[4+i])
-            axs[3, i].plot(x, y[4+i],'o-')
+            axs[3, i].plot(x, y[4+i], linestyle)
         for i in range(6):
-            axs[4, i].plot(x, np.gradient(y[4+i], x, edge_order=2),'o-')
-            axs[4, i].plot(x[1:], (np.diff(y[4+i]) / np.diff(x)),'o-')
-            axs[4, i].plot(x, y_x_dx[4+i], 'o-')
+            axs[4, i].plot(x, y_x_dx[4+i], linestyle, linewidth=5)
+            axs[4, i].plot(x, np.gradient(y[4+i], x, edge_order=2),linestyle)
+            axs[4, i].plot(x[1:], (np.diff(y[4+i]) / np.diff(x)), linestyle)
+
         for i in range(3):
-            axs[4, 3+i].plot(x, y_x_dx_hop[7+i], 'o-')
+            axs[4, 3+i].plot(x, y_x_dx_hop[7+i], linestyle)
             axs[4, 3+i].legend(["analytical", "np.gradient (2nd order)", "np.diff (1st order)", "l'hopital"])
 
         for i in range(6):
-            axs[5, i].plot(x, np.gradient(np.gradient(y[4+i], x, edge_order=2), x, edge_order=2),'o-')
+            axs[5, i].plot(x, np.gradient(np.gradient(y[4+i], x, edge_order=2), x, edge_order=2), linestyle)
 
+        plt.show()
+
+        plt.show()
         plt.show()
 
     def bc(self, y_left, y_right):

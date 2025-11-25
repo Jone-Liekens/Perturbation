@@ -85,7 +85,7 @@ class PDSWE():
 
     def h_fx(self, x): return x
 
-    def h_fx_dx(self, x): return 1
+    def h_fx_dx(self, x): return 1 
     
     def g0_fx(self, x_x):
         h_x = self.h_fx(x_x)
@@ -328,8 +328,6 @@ class PDSWE():
             axs[0, 4+i].set_title(labels[10 + i])
             axs[0, 4+i].plot(self.y.x, self.y.y[10 + i], 'brown')
         plt.show()
-
-
 
     def visualize_components(self, bnd=0):
         # assume self.solve() has been called
