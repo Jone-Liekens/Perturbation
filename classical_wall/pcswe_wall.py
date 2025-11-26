@@ -3,6 +3,7 @@ from numpy import sin, cos, tan, atan, cosh, sinh, tanh, abs, linspace, min, max
 import scipy
 import matplotlib.pyplot as plt
 
+from quartic_solver import * 
 
 class PCSWE_wall_sol(): pass
 
@@ -361,9 +362,39 @@ class PCSWE_wall():
 
 
 
+        sign_changes = u_xt * np.roll(u_xt, -1, axis=1) < 0
+        # print(sign_changes.shape)
+        zero_idxs = [np.asarray(changes).nonzero() for changes in sign_changes]
 
 
+        result = np.zeros((len(x_x), 2))
+        t = sol.t
+        # print(t[0])
+        for x_i in range(len(zero_idxs)):
+            try:
+                for zero_i in range(2):
+                    t_i = zero_idxs[x_i][0][zero_i]
+                    t_cross = t[t_i] - u_xt[x_i,t_i] * (t[t_i+1] - t[t_i]) / (u_xt[x_i,t_i+1] - u_xt[x_i,t_i])
+                    print(x_i, t_i, t_cross)
+            except:
+                pass
 
+        eps = self.epsilon
+
+        a, b, c, d, e = eps * u1r_x, u0c_x, u0s_x, eps * u1c_x, eps * u1s_x
+
+        A = a - b + d
+        B = 2*c - 4*e
+        C = 2*a - 6*d
+        D = 2*c + 4*e
+        E = a + b + d
+       
+
+        sols = multi_quartic(A, B, C, D, E)
+        #  t = 2 atan(x) + 2k pi from these solutions
+        # print(sols)
+            
+     
 
         raise SystemError
 
