@@ -3,8 +3,6 @@ from numpy import sin, cos, tan, atan, cosh, sinh, tanh, abs, linspace, min, max
 import scipy
 import matplotlib.pyplot as plt
 
-from quartic_solver import * 
-
 class PCSWE_wall_sol(): pass
 
 class PCSWE_wall():
@@ -89,7 +87,7 @@ class PCSWE_wall():
     
     def h_fx(self, x): return 0.9 * x
 
-    def h_fx_dx(self, x): return 0.9
+    def h_fx_dx(self, x): return 0.9 * np.ones(x.shape)
 
     def deriv_LO(self, x_x, y0_x):
         # x_x, y0_x = np.array(x_x), np.array(y0_x)
@@ -159,6 +157,20 @@ class PCSWE_wall():
             u_xt = u0_xt + self.epsilon * u1_xt
   
             c2 = cos(atan(self.H/self.L * h_x_dx)) # ~ 1
+
+            # print(u_xt.shape)
+
+            # c1 = tan(self.phi)
+            # c2 = cos(atan(self.H/self.L * h_x_dx)) # ~ 1
+            # c3 = self.H / self.L * h_x_dx # very small
+            # k2 = c2 * c1 
+            # k3 = c2 * c3 # very small
+
+            # print(c3.shape)
+
+            # alpha_xt = c1 / (k2 + k3 * np.sign(u_xt))
+
+
             alpha_xt = tan(self.phi) / (c2[:, None] * (tan(self.phi) + self.H / self.L * h_x_dx[:, None] * np.sign(u_xt)))
      
             y = alpha_xt * u_xt**5
@@ -331,168 +343,46 @@ class PCSWE_wall():
 
 
 
-        c1 = tan(self.phi)
-        c2 = cos(atan(self.H/self.L * h_x_dx)) # ~ 1
-        c3 = self.H / self.L * h_x_dx # very small
-        k2 = c2 * c1 
-        k3 = c2 * c3 # very small
-        alpha_xt = alpha = c1 / (k2 + k3 * np.sign(u_xt))
+        alpha_xt = tan(self.phi) / (cos(atan(self.H/self.L * h_x_dx))[:, None] * (tan(self.phi) + self.H / self.L * h_x_dx[:, None] * np.sign(u_xt)))
+     
+        # alpha_x_pos = c1 / (k2 + k3 * np.sign(u_xt))
 
         y = alpha_xt * u_xt**5
 
         # with alpha
-        u_x_trap = np.trapezoid(y, x=sol.t) # sol.t goes from 0 to 2 pi
-        u_x_simp = scipy.integrate.simpson(y, x=sol.t)
+        u5a_x_trap = np.trapezoid(y, x=sol.t) # sol.t goes from 0 to 2 pi
+        u5a_x_simp = scipy.integrate.simpson(y, x=sol.t)
 
         # without alpha
         u5_x = self.epsilon*(5*pi*u0c_x**4*u1c_x/2 + 15*pi*u0c_x**4*u1r_x/4 + 5*pi*u0c_x**3*u0s_x*u1s_x + 15*pi*u0c_x**2*u0s_x**2*u1r_x/2 + 5*pi*u0c_x*u0s_x**3*u1s_x - 5*pi*u0s_x**4*u1c_x/2 + 15*pi*u0s_x**4*u1r_x/4)
         u5_x_simp = scipy.integrate.simpson(y, x=sol.t)
-        plt.plot(x_x, u_x_trap, 'o')
-        plt.plot(x_x, u_x_simp)
+        plt.plot(x_x, u5a_x_trap, 'o')
+        plt.plot(x_x, u5a_x_simp)
         plt.plot(x_x, u5_x)
         plt.show()
 
-        plt.plot(x_x, np.gradient(u_x_simp, x_x, edge_order=2), 'o')
+        
+
+
+
+        u5_xt_dx = lambda t: self.epsilon*(15*(1 - cos(4*t))*u0c_x**2*u0s_x**2*u1r_x_dx/4 + 15*(1 - cos(4*t))*u0c_x**2*u0s_x*u1r_x*u0s_x_dx/2 + 15*(1 - cos(4*t))*u0c_x*u0s_x**2*u1r_x*u0c_x_dx/2 + 15*(cos(2*t) - cos(6*t))*u0c_x**2*u0s_x**2*u1c_x_dx/8 + 15*(cos(2*t) - cos(6*t))*u0c_x**2*u0s_x*u1c_x*u0s_x_dx/4 + 15*(cos(2*t) - cos(6*t))*u0c_x*u0s_x**2*u1c_x*u0c_x_dx/4 + 10*u0c_x**4*sin(t)*cos(t)**5*u1s_x_dx + 5*u0c_x**4*cos(t)**4*cos(2*t)*u1c_x_dx + 5*u0c_x**4*cos(t)**4*u1r_x_dx + 40*u0c_x**3*u0s_x*sin(t)**2*cos(t)**4*u1s_x_dx + 20*u0c_x**3*u0s_x*sin(t)*cos(t)**3*cos(2*t)*u1c_x_dx + 20*u0c_x**3*u0s_x*sin(t)*cos(t)**3*u1r_x_dx + 20*u0c_x**3*u1c_x*sin(t)*cos(t)**3*cos(2*t)*u0s_x_dx + 20*u0c_x**3*u1c_x*cos(t)**4*cos(2*t)*u0c_x_dx + 20*u0c_x**3*u1r_x*sin(t)*cos(t)**3*u0s_x_dx + 20*u0c_x**3*u1r_x*cos(t)**4*u0c_x_dx + 40*u0c_x**3*u1s_x*sin(t)**2*cos(t)**4*u0s_x_dx + 40*u0c_x**3*u1s_x*sin(t)*cos(t)**5*u0c_x_dx + 60*u0c_x**2*u0s_x**2*sin(t)**3*cos(t)**3*u1s_x_dx + 60*u0c_x**2*u0s_x*u1c_x*sin(t)*cos(t)**3*cos(2*t)*u0c_x_dx + 60*u0c_x**2*u0s_x*u1r_x*sin(t)*cos(t)**3*u0c_x_dx + 120*u0c_x**2*u0s_x*u1s_x*sin(t)**3*cos(t)**3*u0s_x_dx + 120*u0c_x**2*u0s_x*u1s_x*sin(t)**2*cos(t)**4*u0c_x_dx + 40*u0c_x*u0s_x**3*sin(t)**4*cos(t)**2*u1s_x_dx + 20*u0c_x*u0s_x**3*sin(t)**3*cos(t)*cos(2*t)*u1c_x_dx + 20*u0c_x*u0s_x**3*sin(t)**3*cos(t)*u1r_x_dx + 60*u0c_x*u0s_x**2*u1c_x*sin(t)**3*cos(t)*cos(2*t)*u0s_x_dx + 60*u0c_x*u0s_x**2*u1r_x*sin(t)**3*cos(t)*u0s_x_dx + 120*u0c_x*u0s_x**2*u1s_x*sin(t)**4*cos(t)**2*u0s_x_dx + 120*u0c_x*u0s_x**2*u1s_x*sin(t)**3*cos(t)**3*u0c_x_dx + 10*u0s_x**4*sin(t)**5*cos(t)*u1s_x_dx + 5*u0s_x**4*sin(t)**4*cos(2*t)*u1c_x_dx + 5*u0s_x**4*sin(t)**4*u1r_x_dx + 20*u0s_x**3*u1c_x*sin(t)**4*cos(2*t)*u0s_x_dx + 20*u0s_x**3*u1c_x*sin(t)**3*cos(t)*cos(2*t)*u0c_x_dx + 20*u0s_x**3*u1r_x*sin(t)**4*u0s_x_dx + 20*u0s_x**3*u1r_x*sin(t)**3*cos(t)*u0c_x_dx + 40*u0s_x**3*u1s_x*sin(t)**5*cos(t)*u0s_x_dx + 40*u0s_x**3*u1s_x*sin(t)**4*cos(t)**2*u0c_x_dx) + 5*u0c_x**4*sin(t)*cos(t)**4*u0s_x_dx + 5*u0c_x**4*cos(t)**5*u0c_x_dx + 20*u0c_x**3*u0s_x*sin(t)**2*cos(t)**3*u0s_x_dx + 20*u0c_x**3*u0s_x*sin(t)*cos(t)**4*u0c_x_dx + 30*u0c_x**2*u0s_x**2*sin(t)**3*cos(t)**2*u0s_x_dx + 30*u0c_x**2*u0s_x**2*sin(t)**2*cos(t)**3*u0c_x_dx + 20*u0c_x*u0s_x**3*sin(t)**4*cos(t)*u0s_x_dx + 20*u0c_x*u0s_x**3*sin(t)**3*cos(t)**2*u0c_x_dx + 5*u0s_x**4*sin(t)**5*u0s_x_dx + 5*u0s_x**4*sin(t)**4*cos(t)*u0c_x_dx
+        
+        # u5a_xt_dx = lambda t: 
+
+        u5a_xt_dx = u5_xt_dx * alpha_xt
+        u5a_x_dx = scipy.integrate.simpson(u5a_xt_dx, x=sol.t)
+
+        plt.plot(x_x, u5a_x_dx, 'o', color='k')
+        plt.plot(x_x, np.gradient(u5a_x_simp, x_x, edge_order=2), 'o')
         plt.plot(x_x, np.gradient(u5_x, x_x, edge_order=2))
         plt.plot(x_x, np.gradient(u5_x_simp, x_x, edge_order=2))
         plt.show()
 
+        # quad
 
 
 
-
-
-        sign_changes = u_xt * np.roll(u_xt, -1, axis=1) < 0
-        # print(sign_changes.shape)
-        zero_idxs = [np.asarray(changes).nonzero() for changes in sign_changes]
-
-
-        result = np.zeros((len(x_x), 2))
-        t = sol.t
-        # print(t[0])
-        for x_i in range(len(zero_idxs)):
-            try:
-                for zero_i in range(2):
-                    t_i = zero_idxs[x_i][0][zero_i]
-                    t_cross = t[t_i] - u_xt[x_i,t_i] * (t[t_i+1] - t[t_i]) / (u_xt[x_i,t_i+1] - u_xt[x_i,t_i])
-                    print(x_i, t_i, t_cross)
-            except:
-                pass
-
-        eps = self.epsilon
-
-        a, b, c, d, e = eps * u1r_x, u0c_x, u0s_x, eps * u1c_x, eps * u1s_x
-
-        A = a - b + d
-        B = 2*c - 4*e
-        C = 2*a - 6*d
-        D = 2*c + 4*e
-        E = a + b + d
-       
-
-        sols = multi_quartic(A, B, C, D, E)
-        #  t = 2 atan(x) + 2k pi from these solutions
-        # print(sols)
-            
-     
-
-        raise SystemError
-
-        # alternative calculation: find all zeros 
-        print(x_x.shape)
-        print(sol.t.shape)
-
-
-
-
-
-
-
-
-
-        # X, T = np.meshgrid(x_x, sol.t)
-        T, X = np.meshgrid(sol.t, x_x)
-
-
-
-
-
-
-
-
-
-        print(X.shape)
-        print(u_xt.shape)
-
-        # Suppose X, Y are 2D meshgrids and F is f(X,Y)
-        plt.figure()
-        cs = plt.contour(X, T, u_xt, levels=[0], colors='k')  # level-set f=0
-        plt.show()
-
-
-        zero_curves = cs.allsegs
-        print(zero_curves[0])
-        for item in zero_curves[0]:
-            print(item.shape)
-    
-            plt.plot(item[:, 0], item[:, 1])
-            plt.show()
-
-
-        sign_change = u_xt[:, :-1] * u_xt[:, 1:] < 0    # shape (nx, ny-1)
-
-
-        rows, cols = np.where(sign_change)
-
-        print(rows.shape, cols.shape)
-        print(rows)
-
-        result = np.zeros(len(x_x))
-
-
-
-
-        sign_change = u_xt[:, :-1] * u_xt[:, 1:] < 0   # (nx, ny-1)
-        x = np.asarray(sign_change).nonzero()
-        print(x)
-
-
-    
-        results = zeros((len(x_x), 2))       # output array
-        for i in range(len(x_x)):
-            
-
-
-            cols = np.where(sign_change[i])[0]   # indices j where crossing between y[j] and y[j+1]
-            
-            if len(cols) == 0:
-                continue
-            
-            # Interpolate crossings (vectorized for this row)
-            j = cols
-            y0, y1 = y[j], y[j+1]
-            f0, f1 = u_xt[i, j], u_xt[i,j+1]
-            y_cross = y0 - f0 * (y1 - y0) / (f1 - f0)
-            
-            # Keep only the first 2 crossings
-            results[i, :min(2, len(y_cross))] = y_cross[:2]
-
-
-        # print(zero_curves.shape)
-        # print(zero_curves)
-
-        # for path in zero_curves:
-            
-        #     curve = path.vertices      # Nx2 array of (x, y) points along the zero line
-        #     print(curve)
-        #     # do something with curve
-
-
-
-
-
-
-        
+      
 
 
     def transport2(self):

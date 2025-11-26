@@ -19,7 +19,7 @@ class PDSWE_C():
         self.L = 8e3
 
         # tunable
-        self.r = 0.24
+        self.r = 0.45
         self.h0 = 0.0025
         self.small_number = nan
 
@@ -172,6 +172,95 @@ class PDSWE_C():
         s1_x, s2_x, eta0_x, Y0_x = g0_x
         s1_x_dx, s2_x_dx, eta0_x_dx, Y0_x_dx = self.g0_fx_dx(x_x, g0_x)
     
+        s1_x_dxx = -4 / pi**0.5 / self.a_r * (h_x_dxx * s2_x + h_x_dx * s2_x_dx)
+        s2_x_dxx = 8 / self.a_r**2 * (h_x_dxx * (1-h_x) * s2_x - h_x_dx  * h_x_dx * s2_x + h_x_dx * (1-h_x) * s2_x_dx)
+        Y0_x_dxx = 0.5 * (s1_x_dxx * (1 - h_x) - s1_x_dx * h_x_dx - s1_x_dx * h_x_dx - (s1_x + 1) * h_x_dxx) + self.a_r / 4 / pi**0.5 * s2_x_dxx
+
+        u_x, u_x_dx = y_x
+        A = (2 * Y0_x_dx * eta0_x - Y0_x * eta0_x_dx) / (Y0_x * eta0_x)
+        B = (Y0_x_dxx * eta0_x - Y0_x_dx * eta0_x_dx + eta0_x**2 / self.kappa) / (Y0_x * eta0_x)
+        C = - (eta0_x**2 * self.r / self.kappa / Y0_x) / (Y0_x * eta0_x)
+        u_x_dxx = - A * u_x_dx - (B + C *1j) * u_x
+
+
+        dz_x = 1j * (Y0_x_dx * u_x + Y0_x * u_x_dx) / eta0_x
+        dz_x_dx = 1 / self.kappa * (- self.r / Y0_x * u_x - 1j * u_x)
+        u_x_dxx = -1j * (
+            eta0_x_dx * dz_x / Y0_x +
+            eta0_x * dz_x_dx / Y0_x +
+            - eta0_x * dz_x * Y0_x_dx / Y0_x**2
+        ) - (
+            Y0_x_dxx * u_x / Y0_x + 
+            Y0_x_dx * u_x_dx / Y0_x +
+            - Y0_x_dx * u_x * Y0_x_dx / Y0_x**2
+        )
+
+        return [u_x_dx, u_x_dxx]
+
+    def ivp(self, u_start, dense_output=False):
+        x_range = [0, 1 + self.dL]
+
+        u_l = u_start[0] + 1j * u_start[1]
+        dz_l = 1 + 0j
+
+        u_l_dx = self.u_x_dx(0, dz_l, u_l)
+
+        y0 = np.array([u_l, u_l_dx])
+        sol = scipy.integrate.solve_ivp(self.u_x_dxx, x_range, y0, dense_output=dense_output, rtol=1e-7)
+
+        return sol
+
+    def solve_u_xx(self):
+
+        def mismatch(s):
+            # velocity should be zero at boundary
+            sol = self.ivp(s)
+            return [real(sol.y[0, -1]), imag(sol.y[0, -1])]
+
+
+        s_guess = [0.1, 0.1]
+        res = scipy.optimize.root(mismatch, s_guess, tol=1e-9)
+
+        self.res = res
+        print(res)
+
+    def visualize_u_xx(self):
+        
+        sol = self.ivp(self.res.x, True)
+
+
+        # x_x = np.linspace(0, 1, 1000)
+        x_x = sol.t
+        u_x, u_x_dx = sol.sol(x_x)
+
+        
+
+        g0_x = self.g0_fx(x_x)
+        s1_x, s2_x, eta0_x, Y0_x = g0_x
+        s1_x_dx, s2_x_dx, eta0_x_dx, Y0_x_dx = self.g0_fx_dx(x_x, g0_x)
+
+        dz_x = 1j * (Y0_x_dx * u_x + Y0_x * u_x_dx) / eta0_x
+
+        print(dz_x)
+
+        uc_x, us_x = real(u_x), imag(u_x)
+        dzc_x, dzs_x = real(dz_x), imag(dz_x)
+
+        fig, axs = plt.subplots(1, 4, figsize=(20, 5))
+        axs[0].plot(x_x, dzc_x, 'o-')
+        axs[1].plot(x_x, dzs_x, 'o-')
+        axs[2].plot(x_x, uc_x, 'o-')
+        axs[3].plot(x_x, us_x, 'o-')
+        plt.show()
+
+    def u_x_dxx_test(self, x_x, y_x):
+        h_x, h_x_dx, h_x_dxx = self.h_fx(x_x), self.h_fx_dx(x_x), self.h_fx_dxx(x_x)
+
+        # helper functions that often appear
+        g0_x = self.g0_fx(x_x)
+        s1_x, s2_x, eta0_x, Y0_x = g0_x
+        s1_x_dx, s2_x_dx, eta0_x_dx, Y0_x_dx = self.g0_fx_dx(x_x, g0_x)
+    
 
         s1_x_dxx = -4 / pi**0.5 / self.a_r * (h_x_dxx * s2_x + h_x_dx * s2_x_dx)
         s2_x_dxx = 8 / self.a_r**2 * (h_x_dxx * (1-h_x) * s2_x - h_x_dx  * h_x_dx * s2_x + h_x_dx * (1-h_x) * s2_x_dx)
@@ -193,67 +282,18 @@ class PDSWE_C():
             - Y0_x_dx * u_x * Y0_x_dx / Y0_x**2
         )
 
+        A = (2 * Y0_x_dx * eta0_x - Y0_x * eta0_x_dx) / (Y0_x * eta0_x)
+        B = (Y0_x_dxx * eta0_x - Y0_x_dx * eta0_x_dx + eta0_x**2 / self.kappa) / (Y0_x * eta0_x)
+        C = - (eta0_x**2 * self.r / self.kappa / Y0_x) / (Y0_x * eta0_x)
+
+        u_x_dxx2 = - A * u_x_dx - (B + C *1j) * u_x
+
+        plt.plot(x_x, u_x_dxx, 'o')
+        plt.plot(x_x, u_x_dxx2)
+        plt.show()
+
         return [u_x_dx, u_x_dxx]
 
-    def ivp(self, u_start, dense_output=False):
-        x_range = [0, 1]
-
-        u_start = u_start[0] + 1j * u_start[1]
-        dz_start = 1 + 0j
-
-        g0_x = self.g0_fx(1)
-        s1_x, s2_x, eta0_x, Y0_x = g0_x
-        s1_x_dx, s2_x_dx, eta0_x_dx, Y0_x_dx = self.g0_fx_dx(1, g0_x)
-    
-
-        # u_dx_start = (- eta0_x * 1j * dz_start - Y0_x_dx * u_start ) / Y0_x
-
-        u_dx_start = (-1j * eta0_x * dz_start - u_start * Y0_x_dx)  / Y0_x
-
-
-        y0 = np.array([u_start, u_dx_start])
-        sol = scipy.integrate.solve_ivp(self.u_x_dxx, x_range, y0, dense_output=dense_output, rtol=1e-7)
-
-        return sol
-
-    def solve_u_xx(self):
-
-        def mismatch(s):
-            # velocity should be zero at boundary
-            sol = self.ivp(s)
-            
-            return [real(sol.y[0, -1]), imag(sol.y[0, -1])]
-
-
-        s_guess = [0.1, 0.1]
-        res = scipy.optimize.root(mismatch, s_guess)
-
-        self.res = res
-        print(res)
-
-    def visualize_u_xx(self):
-        
-        sol = self.ivp(self.res.x, True)
-        print(sol)
-
-        x_x = np.linspace(0, 1, 1000)
-        u_x, u_x_dx = sol.sol(x_x)
-
-        g0_x = self.g0_fx(x_x)
-        s1_x, s2_x, eta0_x, Y0_x = g0_x
-        s1_x_dx, s2_x_dx, eta0_x_dx, Y0_x_dx = self.g0_fx_dx(x_x, g0_x)
-
-        dz_x = 1j * (Y0_x_dx * u_x + Y0_x * u_x_dx) / eta0_x
-
-        uc_x, us_x = real(u_x), imag(u_x)
-        dzc_x, dzs_x = real(dz_x), imag(dz_x)
-
-        fig, axs = plt.subplots(1, 4, figsize=(20, 5))
-        axs[0].plot(x_x, dzc_x)
-        axs[1].plot(x_x, dzs_x)
-        axs[2].plot(x_x, uc_x)
-        axs[3].plot(x_x, us_x)
-        plt.show()
 
 
 if __name__ == "__main__":
