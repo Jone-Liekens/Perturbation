@@ -285,19 +285,24 @@ class PCSWE_wall():
             print(sol)
             raise SystemError
 
-    def visualize_sol(self):
+    def visualize_sol(self, bnd=None, axs=None):
         # assume self.solve() has been called
-
-        fig, axs = plt.subplots(2, 6, figsize=(30, 10))
+        if axs is None:
+            fig, axs = plt.subplots(2, 6, figsize=(30, 10))
         labels=[r"$\zeta^0_{c1}$", r"$\zeta^0_{s1}$", r"$u^0_{c1}$", r"$u^0_{s1}$", r"$\zeta^1_{r}$", r"$\zeta^1_{c2}$", r"$\zeta^1_{s2}$", r"$u^1_{r}$", r"$u^1_{c2}$", r"$u^1_{s2}$"]
+
+        bnd = bnd if bnd is not None and bnd > 1e-5 else self.y.x[1]
+        st = np.argmin(abs(self.y.x - bnd))
+
         for i in range(4):
             axs[0, i].set_title(labels[i])
-            axs[0, i].plot(self.y.x, self.y.y[i])
+            axs[0, i].plot(self.y.x[st:], self.y.y[i][st:])
         for i in range(6):
             axs[1, i].set_title(labels[4 + i])
-            axs[1, i].plot(self.y.x, self.y.y[4 + i])
+            axs[1, i].plot(self.y.x[st:], self.y.y[4 + i][st:])
 
-        plt.show()
+        if axs is None:
+            plt.show()
 
     def visualize_sol_LO(self):
 

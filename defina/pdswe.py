@@ -21,7 +21,6 @@ class PDSWE():
 
         # tunable
         self.r = 0.24
-        self.h0 = 0.0025
         self.small_number = nan
 
         # defina
@@ -50,6 +49,12 @@ class PDSWE():
 
         self.delta = 0.04 * self.c_d**(3/2) * self.A * (self.sigma * self.L)**4 / \
                     (self.g**2 * (self.s-1)**2 * self.d50 * self.H**6 * (1-self.p))
+
+
+    def signature(self):
+        return r"DSWE $r = {}, a_r = {}, dL = {}, h(1) = {} (A = {}, H = {}, L = {})$".format(self.r, self.a_r, self.dL, self.h_fx(1), self.A, self.H, self.L)
+
+
 
     def generate_solution(self):
         # assume we have ran self.solve()
@@ -329,10 +334,13 @@ class PDSWE():
             axs[0, 4+i].plot(self.y.x, self.y.y[10 + i], 'brown')
         plt.show()
 
-    def visualize_components(self, bnd=0):
+    def visualize_components(self, bnd=0, axs=None):
         # assume self.solve() has been called
 
-        fig, axs = plt.subplots(2, 6, figsize=(30, 10))
+        if axs is None:
+            fig, axs = plt.subplots(2, 6, figsize=(30, 10))
+            # fig, axs = plt.subplots(3, 6, figsize=(30, 15))
+
         labels=[r"$\zeta^0_{c1}$", r"$\zeta^0_{s1}$", r"$u^0_{c1}$", r"$u^0_{s1}$", r"$\zeta^1_{r}$", r"$\zeta^1_{c2}$", r"$\zeta^1_{s2}$", r"$u^1_{r}$", r"$u^1_{c2}$", r"$u^1_{s2}$"]
         st = np.argmin(abs(self.y.x - bnd))
         for i in range(4):
@@ -342,7 +350,8 @@ class PDSWE():
             axs[1, i].set_title(labels[4 + i])
             axs[1, i].plot(self.y.x[st:], self.y.y[4 + i, st:])
 
-        plt.show()
+        if axs is None:
+            plt.show()
 
     def visualize_amplitudes(self, bnd=None, axs=None):
         # assume self.solve() has been called
@@ -364,6 +373,7 @@ class PDSWE():
         # phase = np.unwrap(np.unwrap(phase, axis=1), axis=0)
         if axs is None:
             fig, axs = plt.subplots(2, 6, figsize=(30, 10))
+            # fig, axs = plt.subplots(3, 6, figsize=(30, 15))
 
         bnd = bnd if bnd is not None and bnd > 1e-5 else self.y.x[1]
         st = np.argmin(abs(self.y.x - bnd))
@@ -374,7 +384,12 @@ class PDSWE():
         for j in range(6):
             axs[0, j].set_title(labels[j])
             axs[0, j].plot(self.y.x[st:], ampl[j, st:])
-            axs[1, j].plot(self.y.x[st:-2], phase[j, st:-2])
+            axs[1, j].plot(self.y.x[st:], phase[j, st:])
+            # axs[2, j].plot(self.y.x[st:], np.gradient(phase[j, st:], self.y.x[st:], edge_order=2))
+
+        
+
+        
 
         if axs is None:
             plt.show()

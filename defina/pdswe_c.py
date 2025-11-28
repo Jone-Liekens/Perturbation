@@ -182,19 +182,6 @@ class PDSWE_C():
         C = - (eta0_x**2 * self.r / self.kappa / Y0_x) / (Y0_x * eta0_x)
         u_x_dxx = - A * u_x_dx - (B + C *1j) * u_x
 
-
-        dz_x = 1j * (Y0_x_dx * u_x + Y0_x * u_x_dx) / eta0_x
-        dz_x_dx = 1 / self.kappa * (- self.r / Y0_x * u_x - 1j * u_x)
-        u_x_dxx = -1j * (
-            eta0_x_dx * dz_x / Y0_x +
-            eta0_x * dz_x_dx / Y0_x +
-            - eta0_x * dz_x * Y0_x_dx / Y0_x**2
-        ) - (
-            Y0_x_dxx * u_x / Y0_x + 
-            Y0_x_dx * u_x_dx / Y0_x +
-            - Y0_x_dx * u_x * Y0_x_dx / Y0_x**2
-        )
-
         return [u_x_dx, u_x_dxx]
 
     def ivp(self, u_start, dense_output=False):
@@ -234,14 +221,11 @@ class PDSWE_C():
         u_x, u_x_dx = sol.sol(x_x)
 
         
-
         g0_x = self.g0_fx(x_x)
         s1_x, s2_x, eta0_x, Y0_x = g0_x
         s1_x_dx, s2_x_dx, eta0_x_dx, Y0_x_dx = self.g0_fx_dx(x_x, g0_x)
 
         dz_x = 1j * (Y0_x_dx * u_x + Y0_x * u_x_dx) / eta0_x
-
-        print(dz_x)
 
         uc_x, us_x = real(u_x), imag(u_x)
         dzc_x, dzs_x = real(dz_x), imag(dz_x)
@@ -261,7 +245,6 @@ class PDSWE_C():
         s1_x, s2_x, eta0_x, Y0_x = g0_x
         s1_x_dx, s2_x_dx, eta0_x_dx, Y0_x_dx = self.g0_fx_dx(x_x, g0_x)
     
-
         s1_x_dxx = -4 / pi**0.5 / self.a_r * (h_x_dxx * s2_x + h_x_dx * s2_x_dx)
         s2_x_dxx = 8 / self.a_r**2 * (h_x_dxx * (1-h_x) * s2_x - h_x_dx  * h_x_dx * s2_x + h_x_dx * (1-h_x) * s2_x_dx)
         Y0_x_dxx = 0.5 * (s1_x_dxx * (1 - h_x) - s1_x_dx * h_x_dx - s1_x_dx * h_x_dx - (s1_x + 1) * h_x_dxx) + self.a_r / 4 / pi**0.5 * s2_x_dxx
@@ -272,25 +255,71 @@ class PDSWE_C():
         dz_x_dx = 1 / self.kappa * (- self.r / Y0_x * u_x - 1j * u_x)
         # dz_x_dx2 = 1j * (Y0_x_dxx * u_x + Y0_x_dx * u_x_dx + Y0_x_dx + u_x_dx + Y0_x * u_x_dxx) / eta0_x - 1j / eta0_x**2 * eta0_x_dx * (Y0_x_dx * u_x + Y0_x * u_x_dx) 
         
-        u_x_dxx = -1j * (
-            eta0_x_dx * dz_x / Y0_x +
-            eta0_x * dz_x_dx / Y0_x +
-            - eta0_x * dz_x * Y0_x_dx / Y0_x**2
-        ) - (
-            Y0_x_dxx * u_x / Y0_x + 
-            Y0_x_dx * u_x_dx / Y0_x +
-            - Y0_x_dx * u_x * Y0_x_dx / Y0_x**2
-        )
 
         A = (2 * Y0_x_dx * eta0_x - Y0_x * eta0_x_dx) / (Y0_x * eta0_x)
         B = (Y0_x_dxx * eta0_x - Y0_x_dx * eta0_x_dx + eta0_x**2 / self.kappa) / (Y0_x * eta0_x)
         C = - (eta0_x**2 * self.r / self.kappa / Y0_x) / (Y0_x * eta0_x)
 
-        u_x_dxx2 = - A * u_x_dx - (B + C *1j) * u_x
+        lmbda1 =  - A  - np.sqrt(A**2 - 4 * (B + C * 1j)) / 2 
+        lmbda2 =  - A  - np.sqrt(A**2 - 4 * (B + C * 1j)) / 2 
 
-        plt.plot(x_x, u_x_dxx, 'o')
-        plt.plot(x_x, u_x_dxx2)
+        freq = B + 1j * C - A **2 / 4 - np.gradient(A, x_x, edge_order=2)**2 / 2
+
+
+        R = B - A**2 /4 - np.gradient(A, x_x, edge_order=2)**2 / 2
+        k = np.sqrt(R + 1j * C)
+
+        plt.plot(x_x, real(k))
+        plt.plot(x_x, imag(k))
         plt.show()
+
+        expr = 1 / k**2 * np.gradient(k, x_x, edge_order=2)
+
+
+        plt.plot(x_x, real(expr))
+        plt.plot(x_x, imag(expr))
+        plt.show()
+
+
+
+
+        u_x_dxx = - A * u_x_dx - (B + C *1j) * u_x
+
+        fig, axs = plt.subplots(1, 4, figsize=(20, 5))
+        axs[0].plot(x_x, A)
+        axs[1].plot(x_x, B)
+        axs[2].plot(x_x, C)
+        
+        plt.show()
+
+
+        test_x_i = 200
+
+        test_x = x_x[test_x_i]
+        print(test_x)
+        r = 1e-4
+        test_x_range = linspace(test_x - r, test_x + r, 1000)
+
+        test_u = u_x[test_x_i]
+
+        test_result = test_u * exp(lmbda1 * (test_x_range - test_x))
+
+        fig, axs = plt.subplots(1, 4, figsize=(20, 5))
+        axs[0].plot(x_x[test_x_i-5: test_x_i+5], real(u_x[test_x_i-5: test_x_i+5]))
+        axs[0].plot(test_x_range, real(test_result))
+        
+
+        axs[1].plot(x_x[test_x_i-5: test_x_i+5], imag(u_x[test_x_i-5: test_x_i+5]))
+        axs[1].plot(test_x_range, imag(test_result))
+
+
+    
+        plt.show()
+
+
+
+
+
 
         return [u_x_dx, u_x_dxx]
 
